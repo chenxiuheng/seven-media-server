@@ -19,6 +19,7 @@ public class LoginAction extends ActionSupport {
 
     private org.slf4j.Logger logger = LoggerFactory.getLogger(getClass());
 
+    @Override
     public String execute(){
         logger.debug("{} login with [{}]", user, pass);
         return SUCCESS;

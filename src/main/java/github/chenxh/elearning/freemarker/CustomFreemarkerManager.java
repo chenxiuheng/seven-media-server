@@ -49,7 +49,8 @@ public class CustomFreemarkerManager extends FreemarkerManager {
 		this.util = util;
 	}
 
-	protected void populateContext(ScopesHashModel model, ValueStack stack, Object action, HttpServletRequest request, HttpServletResponse response) {
+	@Override
+    protected void populateContext(ScopesHashModel model, ValueStack stack, Object action, HttpServletRequest request, HttpServletResponse response) {
 		super.populateContext(model, stack, action, request, response);
 		model.put("customFreemarkerManagerUtil", util);
 	}
