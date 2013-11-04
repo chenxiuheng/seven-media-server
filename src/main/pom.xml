@@ -168,7 +168,7 @@
                     <systemProperties>
                         <systemProperty>
                             <name>log4j.configuration</name>
-                            <value>file:${basedir}/src/main/resources/log4j.properties</value>
+                            <value>file:${basedir}/resources/log4j.properties</value>
                         </systemProperty>
                         <systemProperty>
                             <name>slf4j</name>
@@ -176,10 +176,10 @@
                         </systemProperty>
                     </systemProperties>
                     <scanIntervalSeconds>10</scanIntervalSeconds>
-                    <webAppSourceDirectory>${basedir}/src/main/webapp/</webAppSourceDirectory>
+                    <webAppSourceDirectory>${basedir}/webapp/</webAppSourceDirectory>
                     <webAppConfig>
                         <contextPath>/struts2-showcase</contextPath>
-                        <descriptor>${basedir}/src/main/webapp/WEB-INF/web.xml</descriptor>
+                        <descriptor>${basedir}/webapp/WEB-INF/web.xml</descriptor>
                     </webAppConfig>
                 </configuration>
                 <dependencies>
@@ -208,7 +208,7 @@
                 <directory>src/main/resources</directory>
             </resource>
             <resource>
-                <directory>src/main/java</directory>
+                <directory>java</directory>
                 <includes>
                     <include>**/*.java</include>
                 </includes>
