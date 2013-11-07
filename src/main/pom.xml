@@ -34,16 +34,29 @@
 
 		<!-- hibernate3.0 -->
 		<dependency>
-		  <groupId>org.hibernate</groupId>
-		  <artifactId>hibernate-core</artifactId>
-		  <version>3.6.9.Final</version>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-core</artifactId>
+			<version>3.6.9.Final</version>
 		</dependency>
 
+		<!-- dwr -->
+		<dependency>
+			<groupId>org.apache.struts</groupId>
+			<artifactId>struts2-dwr-plugin</artifactId>
+			<version>2.3.15.3</version>
+		</dependency>
 
 		<!-- tiles -->
 		<dependency>
 			<groupId>org.apache.struts</groupId>
 			<artifactId>struts2-tiles-plugin</artifactId>
+			<version>2.3.15.3</version>
+		</dependency>
+
+		<!-- json plugin -->
+		<dependency>
+			<groupId>org.apache.struts</groupId>
+			<artifactId>struts2-json-plugin</artifactId>
 			<version>2.3.15.3</version>
 		</dependency>
 
@@ -68,6 +81,19 @@
 			<artifactId>slf4j-simple</artifactId>
 			<version>1.7.5</version>
 		</dependency>
+
+		<!-- jstl -->
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>jstl</artifactId>
+			<version>1.2</version>
+		</dependency>
+		<dependency>
+			<groupId>taglibs</groupId>
+			<artifactId>standard</artifactId>
+			<version>1.1.2</version>
+		</dependency>
+
 	</dependencies>
 	<build>
 		<sourceDirectory>${basedir}/src</sourceDirectory>
