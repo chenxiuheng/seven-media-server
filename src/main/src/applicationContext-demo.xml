@@ -83,7 +83,6 @@
   </bean>
   <!-- 公共的JDBC DAO类 -->
   
-	<bean id="loginAction" class="github.chenxh.demo.LoginAction">
-
-	</bean>
+	<bean name="loginAction" class="github.chenxh.demo.LoginAction" scope="prototype"/>
+    <bean name="jsonAction" class="github.chenxh.json.JsonAction" scope="prototype"/>
 </beans>

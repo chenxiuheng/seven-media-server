@@ -6,10 +6,15 @@
 	<!-- 改变url现实的后缀,默认是action -->
 	<constant name="struts.action.extension" value="html" />
 
-    <!-- Necessary for Showcase because default includes org.apache.struts2.* -->
-    <constant name="struts.convention.exclude.packages" value="org.apache.struts.*,org.springframework.web.struts.*,org.springframework.web.struts2.*,org.hibernate.*"/>
-    
-	<package name="defalut" namespace="/login" extends="struts-default">
+	<!--
+		Necessary for Showcase because default includes org.apache.struts2.*
+	-->
+	<constant name="struts.convention.exclude.packages"
+		value="org.apache.struts.*,org.springframework.web.struts.*,org.springframework.web.struts2.*,org.hibernate.*" />
+
+	<include file="struts-json.xml"></include>
+
+	<package name="defalut" namespace="/" extends="struts-default">
 		<action name="login" class="loginAction">
 			<result name="success">/success.jsp</result>
 		</action>
