@@ -3,6 +3,8 @@ package github.chenxh.core.dao;
 import java.io.Serializable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -12,13 +14,10 @@ import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.orm.hibernate3.HibernateCallback;
+import org.springframework.orm.hibernate3.HibernateTransactionManager;
 import org.springframework.orm.hibernate3.support.HibernateDaoSupport;
 
 /**
@@ -26,30 +25,13 @@ import org.springframework.orm.hibernate3.support.HibernateDaoSupport;
  * 
  * @author chenxh chenxiuheng@gmail.com
  */
-public class BaseCRUDDao extends HibernateDaoSupport
-        implements
-            ApplicationContextAware {
+public class BaseCRUDDao extends HibernateDaoSupport implements IHibernateDao {
     final protected Logger logger = LoggerFactory.getLogger(getClass());
 
-    public JdbcTemplate getJdbcTemplate() {
-        JdbcDaoSupport jdbc = (JdbcDaoSupport) context.getBean("JDBCDao");
-        return jdbc.getJdbcTemplate();
-    }
 
-    private ApplicationContext context;
-    public void setApplicationContext(ApplicationContext applicationContext)
-            throws BeansException {
-        this.context = applicationContext;
-    }
 
-    /**
-     * 获取一条记录
-     * 
-     * @param <T>
-     * @param type
-     * @param id
-     * @return null is id is null, or no record is found
-     * @author chenxh 2013-11-9
+    /* (non-Javadoc)
+     * @see github.chenxh.core.dao.IHibernateDao#get(java.lang.Class, java.io.Serializable)
      */
     public <T> T get(Class<T> type, Serializable id) {
         if (null == id) {
@@ -62,23 +44,55 @@ public class BaseCRUDDao extends HibernateDaoSupport
         return v;
     }
 
-    /**
-     * 删除一条记录
-     * 
-     * @param entity
-     * @author chenxh 2013-11-9
+    /* (non-Javadoc)
+     * @see github.chenxh.core.dao.IHibernateDao#delete(java.lang.Object)
      */
     public void delete(Object entity) {
         if (null != entity) {
             getHibernateTemplate().delete(entity);
         }
     }
+    
+    /* (non-Javadoc)
+     * @see github.chenxh.core.dao.IHibernateDao#deleteById(java.lang.Class, java.io.Serializable)
+     */
+    public void deleteById(Class<?> type, Serializable id) {
+        Object entity = getHibernateTemplate().get(type, id);
+        if (null != entity) {
+            delete(entity);
+        }
+    }
+    
+    /* (non-Javadoc)
+     * @see github.chenxh.core.dao.IHibernateDao#deleteAllById(java.lang.Class, java.io.Serializable[])
+     */
+    public void deleteAllById(Class<?> type, Serializable[] id) {
+        if (null == id) {
+            return;
+        }
 
-    /**
-     * 使用 hql 批量删除
-     * 
-     * @param entities
-     * @author chenxh 2013-11-9
+        ArrayList<Object> entites = new ArrayList<Object>();
+
+        for (int i = 0; i < id.length; i++) {
+            Object entity = getHibernateTemplate().get(type, id);
+            if (null != entity) {
+                entites.add(entity);
+            }
+        }
+        
+        if (!entites.isEmpty()) {
+            getHibernateTemplate().deleteAll(entites);
+        } else {
+            if (logger.isInfoEnabled()) {
+                logger.info("delete{}  0 rows by id {}", type, Arrays.toString(id));
+            }
+        }
+    }
+    
+    
+
+    /* (non-Javadoc)
+     * @see github.chenxh.core.dao.IHibernateDao#deleteAll(java.util.Collection)
      */
     public void deleteAll(final Collection<Object> entities) {
         if (null == entities || entities.isEmpty()) {
@@ -171,24 +185,43 @@ public class BaseCRUDDao extends HibernateDaoSupport
      */
     protected <T> List<T> query(String sql, List<Object> params,
             RowMapper<T> mapper) {
-        rowMapper = (null != rowMapper ? rowMapper : getDefaultRowMapper());
+        // create rowmapper
+        mapper = (RowMapper<T>) (null != mapper ? mapper : defaultRowMapper);
+        
+        // params
         Object[] args = ((null == params || params.isEmpty()) ? params
                 .toArray() : ArrayUtils.EMPTY_OBJECT_ARRAY);
 
+        // execute
         return getJdbcTemplate().query(sql, args, mapper);
     }
 
-    private RowMapper<?> rowMapper;
-    private <T> RowMapper<?> getDefaultRowMapper() {
-        if (rowMapper == null) {
-            rowMapper = new RowMapper<Object>() {
-                public Object mapRow(ResultSet paramResultSet, int paramInt)
-                        throws SQLException {
-                    return null;
-                }
-            };
-        }
+    final static private RowMapper<?> defaultRowMapper;
+    static{
+        defaultRowMapper = new RowMapper<Object>() {
+            public Object mapRow(ResultSet paramResultSet, int paramInt)
+            throws SQLException {
+                return null;
+            }
+        };
+    }
+    
+    private JdbcTemplate jdbcTemplate;
+    public JdbcTemplate getJdbcTemplate() {
+        return jdbcTemplate;
+    }
 
-        return rowMapper;
+    public final void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    HibernateTransactionManager transactionManager;
+    public final HibernateTransactionManager getTransactionManager() {
+        return transactionManager;
+    }
+
+
+    public final void setTransactionManager(HibernateTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
     }
 }

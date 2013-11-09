@@ -4,7 +4,7 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans
     http://www.springframework.org/schema/beans/spring-beans-2.0.xsd">
 
- <bean id="dataSource"
+ <bean id="repoDataSource"
     class="org.springframework.jdbc.datasource.DriverManagerDataSource">
     <property name="driverClassName">
       <value>com.mysql.jdbc.Driver</value>
@@ -22,7 +22,7 @@
   </bean>
   <!-- jndi连接池  -->
   <!--
-    <bean id="dataSource"
+    <bean id="repoDataSource"
     class="org.springframework.jndi.JndiObjectFactoryBean">
     <property name="jndiName">
     <value>java:comp/env/jdbc/sample</value>
@@ -35,10 +35,10 @@
     </property>
     </bean>
   -->
-  <bean id="sessionFactory"
+  <bean id="repoSessionFactory"
     class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
     <property name="dataSource">
-      <ref local="dataSource" />
+      <ref local="repoDataSource" />
     </property>
     <property name="useTransactionAwareDataSource">
       <value>true</value>
@@ -62,17 +62,17 @@
         <prop key="hibernate.dialect">org.hibernate.dialect.MySQL5Dialect</prop>
         <prop key="hibernate.connection.autocommit">true</prop>
         <prop key="hibernate.connection.charSet">utf-8</prop>
-        <prop key="hibernate.show_sql">true</prop>
+        <prop key="hibernate.show_sql">false</prop>
       </props>
     </property>
   </bean>
-  <bean id="transactionManager"
+  <bean id="repoTransactionManager"
     class="org.springframework.orm.hibernate3.HibernateTransactionManager">
     <property name="dataSource">
-      <ref local="dataSource" />
+      <ref local="repoDataSource" />
     </property>
     <property name="sessionFactory">
-      <ref local="sessionFactory" />
+      <ref local="repoSessionFactory" />
     </property>
     <property name="nestedTransactionAllowed">
       <value>true</value>
@@ -81,7 +81,16 @@
       <value>true</value>
     </property>
   </bean>
+	<bean id="repoJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="repoDataSource"></property>
+	</bean>
+	<bean id="repoCRUDJdbcDao" class="github.chenxh.core.dao.BaseCRUDDao">
+	   <property name="jdbcTemplate" ref="repoJdbcTemplate"></property>
+	   <property name="sessionFactory" ref="repoSessionFactory"></property>
+	   <property name="transactionManager" ref="repoTransactionManager"></property>
+	</bean> 
   <!-- 公共的JDBC DAO类 -->
+  
   
 	<bean name="loginAction" class="github.chenxh.demo.LoginAction" scope="prototype"/>
     <bean name="jsonAction" class="github.chenxh.json.JsonAction" scope="prototype"/>
