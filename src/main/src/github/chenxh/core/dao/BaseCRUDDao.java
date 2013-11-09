@@ -75,7 +75,8 @@ public class BaseCRUDDao extends HibernateDaoSupport
     }
 
     /**
-     * 使用 hql 批量删除 
+     * 使用 hql 批量删除
+     * 
      * @param entities
      * @author chenxh 2013-11-9
      */
@@ -100,6 +101,7 @@ public class BaseCRUDDao extends HibernateDaoSupport
 
     /**
      * HQL 查询
+     * 
      * @param <T>
      * @param hql
      * @return
@@ -112,6 +114,7 @@ public class BaseCRUDDao extends HibernateDaoSupport
 
     /**
      * HQL 查询
+     * 
      * @param <T>
      * @param hql
      * @param param
@@ -125,6 +128,7 @@ public class BaseCRUDDao extends HibernateDaoSupport
 
     /**
      * HQL 查询
+     * 
      * @param <T>
      * @param hql
      * @param param
@@ -157,6 +161,7 @@ public class BaseCRUDDao extends HibernateDaoSupport
 
     /**
      * HQL 查询
+     * 
      * @param <T>
      * @param sql
      * @param params
@@ -169,7 +174,7 @@ public class BaseCRUDDao extends HibernateDaoSupport
         rowMapper = (null != rowMapper ? rowMapper : getDefaultRowMapper());
         Object[] args = ((null == params || params.isEmpty()) ? params
                 .toArray() : ArrayUtils.EMPTY_OBJECT_ARRAY);
-        
+
         return getJdbcTemplate().query(sql, args, mapper);
     }
 
@@ -184,6 +189,6 @@ public class BaseCRUDDao extends HibernateDaoSupport
             };
         }
 
-        return  rowMapper;
+        return rowMapper;
     }
 }
