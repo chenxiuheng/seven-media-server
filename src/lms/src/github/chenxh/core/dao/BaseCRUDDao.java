@@ -183,6 +183,7 @@ public class BaseCRUDDao extends HibernateDaoSupport implements IHibernateDao {
      * @return
      * @author chenxh 2013-11-9
      */
+    @SuppressWarnings("unchecked")
     protected <T> List<T> query(String sql, List<Object> params,
             RowMapper<T> mapper) {
         // create rowmapper
