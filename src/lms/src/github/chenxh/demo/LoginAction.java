@@ -21,7 +21,7 @@ public class LoginAction extends ActionSupport {
     }
 
     /**
-     * 
+     * setName
      * @see {@link #name name} 
      **/
     public final void setName(String name) {
