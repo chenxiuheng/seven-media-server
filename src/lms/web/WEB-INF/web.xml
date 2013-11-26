@@ -37,9 +37,32 @@
 	</filter>
 	<filter-mapping>
 		<filter-name>struts2</filter-name>
-		<url-pattern>*.html</url-pattern>
+		<url-pattern>*.htm</url-pattern>
+	</filter-mapping>
+	
+	<filter-mapping>
+		<filter-name>struts2</filter-name>
+		<url-pattern>*.do</url-pattern>
 	</filter-mapping>
 
+    <!-- image upload -->
+    <servlet>
+        <servlet-name>UploadImage</servlet-name>
+        <servlet-class>github.chenxh.common.file.FileUploaderServlet</servlet-class>
+        <init-param>
+            <param-name>allow</param-name>
+            <param-value>.jpg,.png,.jpeg,.bmp,.gif,</param-value>
+        </init-param>
+        <init-param>
+            <param-name>path</param-name>
+            <param-value>/upload/img</param-value>
+        </init-param>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>UploadImage</servlet-name>
+        <url-pattern>/pub/ueditor/img.put</url-pattern>
+    </servlet-mapping>
 	<welcome-file-list>
 		<welcome-file>index.jsp</welcome-file>
 		<welcome-file>index.html</welcome-file>
