@@ -3,17 +3,14 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>org.zwen.media</groupId>
-		<artifactId>seven-media-server</artifactId>
-		<relativePath>../seven-media-server</relativePath>
+		<groupId>org.zwen.media.rtsp</groupId>
+		<artifactId>rtsp</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 	<artifactId>rtsp-client</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<name>RTSP Client Impl</name>
 
 	<dependencies>
-	
-		
 		<dependency>
 			<groupId>org.zwen.media</groupId>
 			<artifactId>efflux</artifactId>
