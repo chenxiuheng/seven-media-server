@@ -7,9 +7,8 @@
 	<packaging>pom</packaging>
 
 	<modules>
-		<module>../flazr</module>
-		<module>../efflux</module>
-		<module>../rtsp-client</module>
+		<module>rtmp</module>
+		<module>rtsp</module>
 	</modules>
 
 	<dependencies>
