@@ -3,11 +3,11 @@
 
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>org.zwen.media</groupId>
-		<artifactId>seven-media-server</artifactId>
-		<relativePath>../seven-media-server</relativePath>
+		<groupId>org.zwen.media.rtmp</groupId>
+		<artifactId>rtmp</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
+	
 	<packaging>jar</packaging>
 	<version>0.7</version>
 	<name>Flazr</name>
