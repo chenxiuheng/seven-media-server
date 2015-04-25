@@ -3,8 +3,8 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>org.zwen.media.protocol.rtsp</groupId>
-		<artifactId>rtsp</artifactId>
+	<groupId>org.zwen.media.server</groupId>
+	<artifactId>rtsp</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
 
