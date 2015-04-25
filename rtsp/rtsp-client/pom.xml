@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>org.zwen.media.protocol.rtsp</groupId>
+		<groupId>org.zwen.media.server</groupId>
 		<artifactId>rtsp</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
 	</parent>
@@ -12,16 +12,18 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.zwen.media.protocol.rtsp</groupId>
+			<groupId>org.zwen.media.server</groupId>
 			<artifactId>efflux</artifactId>
 			<version>0.4.0</version>
 		</dependency>
-		<dependency>
-			<groupId>org.mobicents.media.io</groupId>
-			<artifactId>rtp</artifactId>
-			<version>3.0.2.FINAL</version>
-		</dependency>
 
+
+
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpcore</artifactId>
+			<version>4.1.2</version>
+		</dependency>
 
 		<!-- for SDP -->
 		<dependency>
@@ -38,11 +40,6 @@
 			<groupId>org.apache.servicemix.bundles</groupId>
 			<artifactId>org.apache.servicemix.bundles.jain-sip-ri</artifactId>
 			<version>1.2.169_2</version>
-		</dependency>
-		<dependency>
-			<groupId>net.java.stun4j</groupId>
-			<artifactId>stun4j</artifactId>
-			<version>1.0.MOBICENTS</version>
 		</dependency>
 
 		<!--
@@ -91,42 +88,7 @@
 		</plugins>
 	</build>
 
-	<repositories>
-		<repository>
-			<id>mobicents-public-repository-group</id>
-			<name>Mobicens Public Maven Repository Group</name>
-			<url>https://oss.sonatype.org/content/groups/public</url>
-			<layout>default</layout>
-			<releases>
-				<enabled>true</enabled>
-				<updatePolicy>never</updatePolicy>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-				<updatePolicy>never</updatePolicy>
-			</snapshots>
-		</repository>
-		<repository>
-			<id>jboss-public-repository-group</id>
-			<name>JBoss Public Maven Repository Group</name>
-			<url>http://repository.jboss.org/nexus/content/groups/public</url>
-			<layout>default</layout>
-			<releases>
-				<enabled>true</enabled>
-				<updatePolicy>never</updatePolicy>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-				<updatePolicy>never</updatePolicy>
-			</snapshots>
-		</repository>
 
-		<repository>
-			<id>jboss-deprecated</id>
-			<name>jboss-deprecated</name>
-			<url>http://repository.jboss.org/nexus/content/repositories/deprecated</url>
-		</repository>
-	</repositories>
 
 
 </project>
