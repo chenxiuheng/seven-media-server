@@ -82,10 +82,10 @@ public abstract class AbstractRtpSession implements RtpSession, TimerTask {
 
     // TODO not working with USE_NIO = false
     protected static final boolean USE_NIO = true;
-    protected static final boolean DISCARD_OUT_OF_ORDER = true;
+    protected static final boolean DISCARD_OUT_OF_ORDER = false;
     protected static final int BANDWIDTH_LIMIT = 256;
-    protected static final int SEND_BUFFER_SIZE = 1500;
-    protected static final int RECEIVE_BUFFER_SIZE = 1500;
+    protected static final int SEND_BUFFER_SIZE = 64 * 1024; // 1500
+    protected static final int RECEIVE_BUFFER_SIZE = 64 * 1024; // 1500
     protected static final int MAX_COLLISIONS_BEFORE_CONSIDERING_LOOP = 3;
     protected static final boolean AUTOMATED_RTCP_HANDLING = true;
     protected static final boolean TRY_TO_UPDATE_ON_EVERY_SDES = true;
