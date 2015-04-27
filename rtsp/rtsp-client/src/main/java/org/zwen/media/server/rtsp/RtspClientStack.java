@@ -3,6 +3,7 @@ package org.zwen.media.server.rtsp;
 import gov.nist.core.Separators;
 
 import java.io.Closeable;
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -10,6 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -39,8 +42,7 @@ public class RtspClientStack implements Closeable {
 	private AtomicLong cseq = new AtomicLong(1);
 	private Channel channel;
 	private ClientBootstrap bootstrap;
-	private ConcurrentHashMap<String, RtspRequestFuture> futures = new ConcurrentHashMap<String, RtspRequestFuture>();
-
+	private ConcurrentHashMap<String, AsynFuture> futures = new ConcurrentHashMap<String, AsynFuture>();
 
 	public RtspClientStack(String host, int port) {
 		super();
@@ -48,22 +50,22 @@ public class RtspClientStack implements Closeable {
 		this.port = port;
 	}
 
-	public RtspRequestFuture send(HttpRequest request) {
+	public AsynFuture send(HttpRequest request) {
 		long seqNo = cseq.getAndIncrement();
-		RtspRequestFuture f = new RtspRequestFuture();
+		AsynFuture f = new AsynFuture();
 
 		HttpHeaders headers = request.headers();
 		headers.add(RtspHeaders.Names.CSEQ, seqNo);
 		if (null != sessionId) {
 			headers.add(RtspHeaders.Names.SESSION, sessionId);
 		}
-		
+
 		if (headers.contains(RtspHeaders.Names.AUTHORIZATION)) {
 			authValue = headers.get(RtspHeaders.Names.AUTHORIZATION);
 		} else if (null != authValue) {
 			headers.add(RtspHeaders.Names.AUTHORIZATION, authValue);
 		}
-		
+
 		futures.put(String.valueOf(seqNo), f);
 		channel.write(request);
 
@@ -71,7 +73,7 @@ public class RtspClientStack implements Closeable {
 			logger.info(request.getMethod() + " {}\r\n{}\r\n",
 					request.getUri(), toString(headers));
 		}
-		
+
 		return f;
 	}
 
@@ -84,17 +86,17 @@ public class RtspClientStack implements Closeable {
 				response.getContent().readBytes(bytes);
 				content = new String(bytes);
 			}
-			
+
 			logger.info("{}\r\n{}", toString(headers), content);
 		}
-		
+
 		String sessionId = response.headers().get(RtspHeaders.Names.SESSION);
 		if (null != sessionId) {
 			this.sessionId = sessionId;
 		}
 
 		String seqNo = response.headers().get(RtspHeaders.Names.CSEQ);
-		RtspRequestFuture f= futures.remove(seqNo);
+		AsynFuture f = futures.remove(seqNo);
 		if (null != f) {
 			f.handle(response);
 		} else {
@@ -124,15 +126,15 @@ public class RtspClientStack implements Closeable {
 	public String getHost() {
 		return host;
 	}
-	
+
 	public int getPort() {
 		return port;
 	}
-	
+
 	public String getSessionId() {
 		return sessionId;
 	}
-	
+
 	public void close() {
 		try {
 			channel.close();
@@ -164,4 +166,46 @@ public class RtspClientStack implements Closeable {
 		return buf;
 	}
 
+	public static final class AsynFuture implements Serializable {
+		private static final long serialVersionUID = 1L;
+
+		private HttpResponse response;
+		private Semaphore lock = new Semaphore(0);
+
+		void handle(HttpResponse response) {
+			lock.release();
+
+			this.response = response;
+		}
+
+		public HttpResponse get() throws ChannelException {
+			try {
+				lock.acquire();
+				lock.release();
+			} catch (InterruptedException e) {
+				handleInterruptedException(e);
+			}
+
+			return response;
+		}
+
+		public HttpResponse get(long timeout, TimeUnit unit)
+				throws ChannelException {
+			try {
+				boolean got = lock.tryAcquire(timeout, unit);
+				if (got) {
+					lock.release();
+				}
+			} catch (InterruptedException e) {
+				handleInterruptedException(e);
+			}
+
+			return response;
+		}
+
+		private void handleInterruptedException(InterruptedException ex)
+				throws ChannelException {
+			throw new ChannelException(ex.getMessage(), ex.getCause());
+		}
+	}
 }
