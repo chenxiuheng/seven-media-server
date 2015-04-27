@@ -38,8 +38,9 @@ import org.jboss.netty.handler.codec.rtsp.RtspVersions;
 import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwensoft.mediaserver.NoPortAvailableException;
-import org.zwensoft.mediaserver.PortManager;
+import org.zwen.media.server.rtsp.NoPortAvailableException;
+import org.zwen.media.server.rtsp.PortManager;
+import org.zwen.media.server.rtsp.RtspSession;
 
 import com.biasedbit.efflux.participant.RtpParticipant;
 import com.biasedbit.efflux.session.RtpSession;
@@ -118,7 +119,7 @@ public class RtspClient {
 		final ChannelFactory factory = new NioClientSocketChannelFactory(
 				executor, executor);
 		final ClientBootstrap bootstrap = new ClientBootstrap(factory);
-		bootstrap.setPipelineFactory(new ClientPipelineFactory(this));
+		// bootstrap.setPipelineFactory(new ClientPipelineFactory(this));
 		bootstrap.setOption("tcpNoDelay", Boolean.TRUE);
 		bootstrap.setOption("keepAlive", Boolean.TRUE);
 		return bootstrap;
@@ -323,6 +324,7 @@ public class RtspClient {
 		
 		RtpSession rtp = new SingleParticipantSession(id, payloadType,
 				localParticipant, remoteParticipant);
+		
 		
 		session.addRtpSession(rtp);
 
