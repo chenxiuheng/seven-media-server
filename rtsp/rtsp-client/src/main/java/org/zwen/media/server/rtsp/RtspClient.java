@@ -34,8 +34,11 @@ import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipant;
+import com.biasedbit.efflux.participant.RtpParticipantInfo;
 import com.biasedbit.efflux.session.RtpSession;
+import com.biasedbit.efflux.session.RtpSessionDataListener;
 import com.biasedbit.efflux.session.SingleParticipantSession;
 
 public class RtspClient implements Closeable {
@@ -46,6 +49,7 @@ public class RtspClient implements Closeable {
 	private String user;
 	private String pass;
 	private RtspClientStack stack;
+	private List<MediaDescription> mediaDescriptions;
 	private List<RtpSession> sessions = new ArrayList<RtpSession>();
 
 	public RtspClient(String url, String user, String pass) {
@@ -68,7 +72,10 @@ public class RtspClient implements Closeable {
 		stack = new RtspClientStack(host, port);
 	}
 
-	public void connect() throws SdpException, NoPortAvailableException {
+	@SuppressWarnings("unchecked")
+	public void connect() throws SdpException {
+		stack.connect();
+		
 		HttpResponse resp = null;
 
 		resp = option(null, null);
@@ -77,19 +84,24 @@ public class RtspClient implements Closeable {
 		}
 
 		SessionDescription sessionDescription = describe();
-		List<MediaDescription> mediaDescriptions = sessionDescription
-				.getMediaDescriptions(false);
+		mediaDescriptions = sessionDescription.getMediaDescriptions(false);
 		assertNotNull(mediaDescriptions);
 
+	}
+
+	public void start(RtpSessionDataListener listener) throws SdpParseException, NoPortAvailableException {
 		for (MediaDescription mediaDescription : mediaDescriptions) {
 			RtpSession session = setup(mediaDescription);
 			sessions.add(session);
+			
+			session.addDataListener(listener);
+
 			session.init();
 		}
 
 		play();
 	}
-
+	
 	private void assertNotNull(List<MediaDescription> mediaDescriptions) {
 		if (null == mediaDescriptions) {
 			throw new ChannelException("MediaDescription Not Found");
@@ -113,8 +125,9 @@ public class RtspClient implements Closeable {
 
 		HttpResponse resp = stack.send(request).get();
 		ChannelBuffer data = resp.getContent();
-		String sdp = new String(data.array(), data.arrayOffset(), data
-				.readableBytes());
+		byte[] array = new byte[data.readableBytes()];
+		data.readBytes(array);
+		String sdp = new String(array);
 
 		SessionDescriptionImpl sd = new SessionDescriptionImpl();
 		StringTokenizer tokenizer = new StringTokenizer(sdp);

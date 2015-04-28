@@ -83,7 +83,7 @@ public class RtspClientStack implements Closeable {
 			String content = "";
 			if (response.getContent().readableBytes() > 0) {
 				byte[] bytes = new byte[response.getContent().readableBytes()];
-				response.getContent().readBytes(bytes);
+				response.getContent().duplicate().readBytes(bytes);
 				content = new String(bytes);
 			}
 
@@ -104,15 +104,13 @@ public class RtspClientStack implements Closeable {
 		}
 	}
 
-	public ChannelFuture connect() {
+	public void connect() {
 		InetSocketAddress address = new InetSocketAddress(host, port);
 		bootstrap = getBootstrap(threadPool);
 		final ChannelFuture future = bootstrap.connect(address);
 		future.awaitUninterruptibly();
 		if (!future.isSuccess()) {
-			// future.getCause().printStackTrace();
-			logger.error("error creating client connection: {}", future
-					.getCause().getMessage());
+			throw new ChannelException(future.getCause());
 		}
 
 		channel = future.getChannel();
@@ -120,7 +118,7 @@ public class RtspClientStack implements Closeable {
 		// future.getChannel().getCloseFuture().awaitUninterruptibly();
 		// bootstrap.getFactory().releaseExternalResources();
 
-		return channel.getCloseFuture();
+		// return channel.getCloseFuture();
 	}
 
 	public String getHost() {

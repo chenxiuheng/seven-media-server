@@ -6,7 +6,6 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.rtsp.RtspRequestEncoder;
 import org.jboss.netty.handler.codec.rtsp.RtspResponseDecoder;
-import org.zwensoft.mediaserver.rtsp.RtspClient;
 
 
 public class ClientPipelineFactory implements ChannelPipelineFactory {
