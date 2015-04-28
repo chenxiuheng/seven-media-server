@@ -6,16 +6,24 @@ import gov.nist.javax.sdp.fields.SDPField;
 import gov.nist.javax.sdp.parser.ParserFactory;
 import gov.nist.javax.sdp.parser.SDPParser;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.util.Vector;
 
 import javax.sdp.MediaDescription;
 import javax.sdp.SdpException;
+import javax.sdp.SdpParseException;
 
 import junit.framework.TestCase;
 
 import org.jboss.netty.channel.ChannelFuture;
-import org.zwensoft.mediaserver.rtsp.RtspClient;
+import org.zwen.media.server.rtsp.NoPortAvailableException;
+import org.zwen.media.server.rtsp.RtspClient;
+
+import com.biasedbit.efflux.packet.DataPacket;
+import com.biasedbit.efflux.participant.RtpParticipantInfo;
+import com.biasedbit.efflux.session.RtpSession;
+import com.biasedbit.efflux.session.RtpSessionDataListener;
 
 public class TestRtspClient extends TestCase {
 
@@ -52,14 +60,21 @@ public class TestRtspClient extends TestCase {
 		System.out.println(one);
 	}
 
-	public void testConnect() {
+	public void testConnect() throws NoPortAvailableException, SdpException, InterruptedException, IOException {
 		String url = "rtsp://172.16.160.200:554";
 		RtspClient client = new RtspClient(url, "admin", "admin");
-		ChannelFuture future = client.connect();
+		client.connect();
 
-		client.start();
+		client.start(new RtpSessionDataListener() {
+			
+			@Override
+			public void dataPacketReceived(RtpSession session,
+					RtpParticipantInfo participant, DataPacket packet) {
+				System.out.println(packet);
+			}
+		});
 
-		future.awaitUninterruptibly();
-		System.out.println(client);
+		Thread.sleep(3 * 60 * 1000);
+		client.close();
 	}
 }
