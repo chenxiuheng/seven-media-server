@@ -16,7 +16,10 @@ import javax.sdp.SdpParseException;
 
 import junit.framework.TestCase;
 
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zwen.media.server.rtsp.NoPortAvailableException;
 import org.zwen.media.server.rtsp.RtspClient;
 
@@ -26,7 +29,8 @@ import com.biasedbit.efflux.session.RtpSession;
 import com.biasedbit.efflux.session.RtpSessionDataListener;
 
 public class TestRtspClient extends TestCase {
-
+	private static final Logger logger = LoggerFactory.getLogger(TestRtspClient.class);
+	
 	public void testDecodeSdp() throws ParseException, SdpException {
 		String text = "v=0\n"
 				+ "o=- 2251938191 2251938191 IN IP4 0.0.0.0\n"
@@ -70,7 +74,29 @@ public class TestRtspClient extends TestCase {
 			@Override
 			public void dataPacketReceived(RtpSession session,
 					RtpParticipantInfo participant, DataPacket packet) {
-				System.out.println(packet);
+				ChannelBuffer data = packet.getData();
+				int type = data.readByte();
+				int p = (type >> 5) & 0x3;
+				int nalType = (type & 0x1F);
+				
+				if (nalType == 28) { // FU-A
+					int fuIndicator = data.readByte();
+					nalType = (type & 0x1F);
+					
+					int fuHeader = data.readByte();
+					int nalType2 = (fuHeader & 0x1F);
+					boolean isStart = (fuHeader & 0x80) > 0;
+					boolean isEnd = (fuHeader & 0x40) > 0;
+					
+					if (isStart) {
+						logger.warn("start {} {}", nalType2, packet);
+					} else if (isEnd){
+						logger.warn("end {} {}", nalType2, packet);
+					} else {
+						logger.debug("end {} {}", nalType2, packet);
+					}
+					
+				}
 			}
 		});
 
