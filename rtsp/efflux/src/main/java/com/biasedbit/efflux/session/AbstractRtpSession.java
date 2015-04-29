@@ -488,7 +488,7 @@ public abstract class AbstractRtpSession implements RtpSession, TimerTask {
         }
 
         // Update last SN for participant.
-        participant.setLastSequenceNumber(packet.getSequenceNumber());
+        participant.setLastSequenceNumber((int)(packet.getSequenceNumber() % 65535));
         participant.setLastDataOrigin(origin);
 
         // Finally, dispatch the event to the data listeners.
