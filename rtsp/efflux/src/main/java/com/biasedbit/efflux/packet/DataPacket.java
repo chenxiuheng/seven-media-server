@@ -53,7 +53,7 @@ public class DataPacket {
     private RtpVersion version;
     private boolean marker;
     private int payloadType;
-    private int sequenceNumber;
+    private long sequenceNumber;
     private long timestamp;
     private long ssrc;
 
@@ -174,7 +174,7 @@ public class DataPacket {
         }
         buffer.writeByte(b);
 
-        buffer.writeShort(packet.sequenceNumber);
+        buffer.writeShort((int)(packet.sequenceNumber % 65535));
         buffer.writeInt((int) packet.timestamp);
         buffer.writeInt((int) packet.ssrc);
 
@@ -300,11 +300,11 @@ public class DataPacket {
         this.payloadType = payloadType;
     }
 
-    public int getSequenceNumber() {
+    public long getSequenceNumber() {
         return sequenceNumber;
     }
 
-    public void setSequenceNumber(int sequenceNumber) {
+    public void setSequenceNumber(long sequenceNumber) {
         this.sequenceNumber = sequenceNumber;
     }
 
