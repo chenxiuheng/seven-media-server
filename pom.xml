@@ -9,6 +9,7 @@
 	<modules>
 		<module>rtmp</module>
 		<module>rtsp</module>
+		<module>file</module>
 	</modules>
 
 	<dependencies>
@@ -49,22 +50,8 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-	
-	   <repositories>
-        	<repository>
-			  <id>mobicents-public-repository-group</id>
-			  <name>Mobicens Public Maven Repository Group</name>
-			  <url>https://oss.sonatype.org/content/groups/public</url>
-			  <layout>default</layout>
-			  <releases>
-			    <enabled>true</enabled>
-			    <updatePolicy>never</updatePolicy>
-			  </releases>
-			  <snapshots>
-			    <enabled>true</enabled>
-			    <updatePolicy>never</updatePolicy>
-			  </snapshots>
-		</repository>
+
+	<repositories>
 		<repository>
 			<id>jboss-public-repository-group</id>
 			<name>JBoss Public Maven Repository Group</name>
@@ -80,10 +67,27 @@
 			</snapshots>
 		</repository>
 
-        <repository>
-        	<id>jboss-deprecated</id>
-        	<name>jboss-deprecated</name>
-        	<url>http://repository.jboss.org/nexus/content/repositories/deprecated</url>
-        </repository>
-    </repositories>
+
+
+		<repository>
+			<id>jboss-deprecated</id>
+			<name>jboss-deprecated</name>
+			<url>http://repository.jboss.org/nexus/content/repositories/deprecated</url>
+		</repository>
+
+		<repository>
+			<id>mobicents-public-repository-group</id>
+			<name>Mobicens Public Maven Repository Group</name>
+			<url>https://oss.sonatype.org/content/groups/public</url>
+			<layout>default</layout>
+			<releases>
+				<enabled>true</enabled>
+				<updatePolicy>never</updatePolicy>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>never</updatePolicy>
+			</snapshots>
+		</repository>
+	</repositories>
 </project>
