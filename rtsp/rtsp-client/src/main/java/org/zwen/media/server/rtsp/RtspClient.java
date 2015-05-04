@@ -10,7 +10,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,10 +35,9 @@ import org.jboss.netty.handler.codec.rtsp.RtspVersions;
 import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zwen.media.server.rtp.video.h264.H264AVStream;
 
-import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipant;
-import com.biasedbit.efflux.participant.RtpParticipantInfo;
 import com.biasedbit.efflux.session.RtpSession;
 import com.biasedbit.efflux.session.RtpSessionDataListener;
 import com.biasedbit.efflux.session.SingleParticipantSession;
@@ -86,7 +87,24 @@ public class RtspClient implements Closeable {
 		SessionDescription sessionDescription = describe();
 		mediaDescriptions = sessionDescription.getMediaDescriptions(false);
 		assertNotNull(mediaDescriptions);
-
+	}
+	
+	public List<H264AVStream> getStreams() {
+		if (null == mediaDescriptions) {
+			return Collections.emptyList();
+		}
+		
+		List<H264AVStream> streams = new ArrayList<H264AVStream>();
+		ListIterator<MediaDescription> iter = mediaDescriptions.listIterator();
+		while(iter.hasNext()) {
+			MediaDescription ms = iter.next();
+			
+			H264AVStream stream = new H264AVStream(ms);
+			streams.add(stream);
+		}
+		
+		return streams;
+		
 	}
 
 	public void start(RtpSessionDataListener listener) throws SdpParseException, NoPortAvailableException {
