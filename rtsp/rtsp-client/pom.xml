@@ -17,13 +17,13 @@
 			<version>0.4.0</version>
 		</dependency>
 
-
-
 		<dependency>
-			<groupId>org.apache.httpcomponents</groupId>
-			<artifactId>httpcore</artifactId>
-			<version>4.1.2</version>
+			<groupId>org.zwen.media.server</groupId>
+			<artifactId>flazr</artifactId>
+			<version>0.7</version>
 		</dependency>
+
+
 
 		<!-- for SDP -->
 		<dependency>
@@ -69,6 +69,11 @@
 			<groupId>commons-codec</groupId>
 			<artifactId>commons-codec</artifactId>
 			<version>1.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.3.2</version>
 		</dependency>
 
 
