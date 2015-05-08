@@ -23,7 +23,7 @@ import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.Constants;
-import org.zwen.media.server.rtsp.sdp.video.h264.H264AVStreamExtra;
+import org.zwen.media.protocol.rtsp.sdp.video.h264.H264AVStreamExtra;
 
 import com.flazr.rtmp.message.MetadataAmf0;
 
