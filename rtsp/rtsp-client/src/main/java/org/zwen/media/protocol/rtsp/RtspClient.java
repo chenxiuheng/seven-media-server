@@ -10,9 +10,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
+import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,14 +35,22 @@ import org.jboss.netty.handler.codec.rtsp.RtspVersions;
 import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zwen.media.AVPacket;
+import org.zwen.media.AVStreamDispatcher;
 import org.zwen.media.protocol.rtsp.sdp.video.h264.H264AVStream;
+import org.zwen.media.rtp.JitterBuffer;
+import org.zwen.media.rtp.codec.IDePacketizer;
 
+import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipant;
+import com.biasedbit.efflux.participant.RtpParticipantInfo;
 import com.biasedbit.efflux.session.RtpSession;
 import com.biasedbit.efflux.session.RtpSessionDataListener;
 import com.biasedbit.efflux.session.SingleParticipantSession;
 
-public class RtspClient implements Closeable {
+public class RtspClient extends AVStreamDispatcher implements Closeable {
+	private static final RTPAVStream[] AVSTREMS_EMPTY = new RTPAVStream[0];
+
 	private static final Logger logger = LoggerFactory
 			.getLogger(RtspClient.class);
 
@@ -50,9 +58,9 @@ public class RtspClient implements Closeable {
 	private String user;
 	private String pass;
 	private RtspClientStack stack;
-	private List<MediaDescription> mediaDescriptions;
-	private List<RtpSession> sessions = new ArrayList<RtpSession>();
 
+	private RTPAVStream[] avstreams = AVSTREMS_EMPTY;
+	
 	public RtspClient(String url, String user, String pass) {
 		this.url = url;
 		this.user = user;
@@ -85,37 +93,41 @@ public class RtspClient implements Closeable {
 		}
 
 		SessionDescription sessionDescription = describe();
-		mediaDescriptions = sessionDescription.getMediaDescriptions(false);
+		Vector<MediaDescription> mediaDescriptions = sessionDescription.getMediaDescriptions(false);
 		assertNotNull(mediaDescriptions);
-	}
-	
-	public List<H264AVStream> getStreams() {
-		if (null == mediaDescriptions) {
-			return Collections.emptyList();
-		}
-		
-		List<H264AVStream> streams = new ArrayList<H264AVStream>();
-		ListIterator<MediaDescription> iter = mediaDescriptions.listIterator();
+
+		List<RTPAVStream> streams = new ArrayList<RTPAVStream>();
+		Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions.iterator();
 		while(iter.hasNext()) {
 			MediaDescription ms = iter.next();
 			
-			H264AVStream stream = new H264AVStream(ms);
-			streams.add(stream);
+			Vector  formats = ms.getMedia().getMediaFormats(false);
+			if (null == formats) {
+				continue;
+			}
+			if (formats.contains("96")) {
+				streams.add(new H264AVStream(ms));
+			} else {
+				logger.error("unsupported[{}]", ms.getMedia());
+			}
 		}
-		
-		return streams;
-		
+		this.avstreams = streams.toArray(AVSTREMS_EMPTY);
 	}
-
-	public void start(RtpSessionDataListener listener) throws SdpParseException, NoPortAvailableException {
-		for (MediaDescription mediaDescription : mediaDescriptions) {
-			RtpSession session = setup(mediaDescription);
-			sessions.add(session);
+	
+	public void start() throws SdpParseException, NoPortAvailableException {
+		for (int i = 0; i < avstreams.length; i++) {
+			RTPAVStream stream = avstreams[i];
+			MediaDescription md = stream.getMediaDescription();
 			
-			session.addDataListener(listener);
-
+			RtpSession session = setup(md);
+			JitterBuffer buffer = new JitterBuffer(stream.isVideo() ? 128 : 4);
+			session.addDataListener(new DataPakcetListener(stream, buffer));
+			
+			stream.setRtpSession(session);
 			session.init();
 		}
+
+		fireSetup(avstreams);
 
 		play();
 	}
@@ -272,7 +284,7 @@ public class RtspClient implements Closeable {
 		String authValue = "Basic " + new String(auth);
 		return authValue;
 	}
-
+	
 	@Override
 	public void close() throws IOException {
 		try {
@@ -280,14 +292,51 @@ public class RtspClient implements Closeable {
 				stack.close();
 			}
 		} finally {
-			for (RtpSession session : sessions) {
+			for (RTPAVStream stream : avstreams) {
+				if (null == stream.getSession()) {
+					continue;
+				}
+
 				try {
-					session.terminate();
+					stream.getSession().terminate();
 				} catch (Exception e) {
 					logger.warn(e.getMessage(), e);
 				}
 			}
 		}
+		
+		fireClosed();
+	}
+	
+	private final class DataPakcetListener implements RtpSessionDataListener {
+		private RTPAVStream avStream;
+		private IDePacketizer dePacketizer;
+		private JitterBuffer buffer;
+		private List<AVPacket> out = new ArrayList<AVPacket>(4);
+		
+		public DataPakcetListener(RTPAVStream stream, JitterBuffer buffer) {
+			this.avStream = stream;
+			this.dePacketizer = stream.getDePacketizer();
+			this.buffer = buffer;
+		};
+		
+		@Override
+		public void dataPacketReceived(RtpSession session,
+				RtpParticipantInfo participant, DataPacket packet) {
+			DataPacket pkt = buffer.add(packet);
+			
+			
+			if (null != pkt) {
+				dePacketizer.process(packet, out);
+			}
 
+			while(!out.isEmpty()) {
+				AVPacket poped = out.remove(0);
+				firePacket(avStream, poped);
+				
+				System.out.println(poped);
+			}
+		}
+		
 	}
 }

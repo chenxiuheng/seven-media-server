@@ -5,6 +5,8 @@ import java.util.TreeSet;
 
 import javax.media.Buffer;
 
+import com.biasedbit.efflux.packet.DataPacket;
+
 import net.sf.fmj.media.rtp.RTPSourceStream;
 
 /**
@@ -16,7 +18,7 @@ import net.sf.fmj.media.rtp.RTPSourceStream;
  */
 public class JitterBuffer {
 	private int capacity = 4;
-	private TreeSet<Buffer> buffer = new TreeSet<Buffer>(seqNumComparator);
+	private TreeSet<DataPacket> buffer = new TreeSet<DataPacket>(seqNumComparator);
 	
 	public JitterBuffer(){}
 	
@@ -28,9 +30,9 @@ public class JitterBuffer {
 		}
 	}
 
-	public Buffer add(Buffer pkt) {
+	public synchronized DataPacket add(DataPacket pkt) {
 		buffer.add(pkt);
-		
+
 		if (buffer.size() > capacity) {
 			return buffer.pollFirst();
 		} else {
@@ -49,10 +51,10 @@ public class JitterBuffer {
      * E.g. it works for: [0, 2^15-1] and ([50000, 2^16) u [0, 10000])
      * Doesn't work for: [0, 2^15] and ([0, 2^15-1] u {2^16-1}) and [0, 2^16)
      */
-    public static final Comparator<? super Buffer> seqNumComparator
-            = new Comparator<Buffer>() {
+    public static final Comparator<? super DataPacket> seqNumComparator
+            = new Comparator<DataPacket>() {
         @Override
-        public int compare(Buffer pkt1, Buffer pkt2)
+        public int compare(DataPacket pkt1, DataPacket pkt2)
         {
             long a = pkt1.getSequenceNumber();
             long b = pkt2.getSequenceNumber();

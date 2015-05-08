@@ -133,7 +133,7 @@ public class FlvWriter implements Closeable {
 	public void write(AVPacket frame) throws IOException {
 		if (frame.getFormat() instanceof VideoFormat) {
 			VideoFormat vf = (VideoFormat) frame.getFormat();
-			if (Constants.H264_RTP.equals(vf)) {
+			if (Constants.H264_RTP.equals(vf.getEncoding())) {
 				writeH264WithStartCode(frame);
 				return;
 			}

@@ -2,7 +2,7 @@ package org.zwen.media;
 
 public class Constants {
 
-	public static String H264_RTP = "h264/rtp";
-	public static String H264 = "h264";
+	public static String H264_RTP = "H264/RTP";
+	public static String H264 = "H264";
 
 }

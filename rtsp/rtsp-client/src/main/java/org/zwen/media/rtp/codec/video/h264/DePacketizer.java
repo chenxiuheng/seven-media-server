@@ -9,6 +9,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.zwen.media.AVPacket;
 import org.zwen.media.Constants;
+import org.zwen.media.rtp.codec.IDePacketizer;
 
 import com.biasedbit.efflux.packet.DataPacket;
 
@@ -16,7 +17,7 @@ import com.biasedbit.efflux.packet.DataPacket;
  * @author res
  * 
  */
-public class DePacketizer {
+public class DePacketizer implements IDePacketizer {
 	public final static byte sync_bytes[] = { 0, 0, 0, 1 };
 	
 	private int nalType;
@@ -26,7 +27,7 @@ public class DePacketizer {
 	public DePacketizer() {
 	}
 
-	public void depacket(DataPacket packet, List<AVPacket> out) {
+	public void process(DataPacket packet, List<AVPacket> out) {
 		ChannelBuffer payload = packet.getData();
 		int nalUnitType;
 		int nalRefIdc;

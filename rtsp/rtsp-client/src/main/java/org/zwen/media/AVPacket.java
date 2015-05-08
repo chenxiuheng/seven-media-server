@@ -7,6 +7,8 @@ import java.util.concurrent.TimeUnit;
 import javax.media.Buffer;
 import javax.media.Format;
 
+import org.apache.commons.lang3.time.DateFormatUtils;
+
 public class AVPacket {
 	private Buffer buffer;
 
@@ -99,4 +101,27 @@ public class AVPacket {
 		return buffer.getOffset();
 	}
 
+	
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder("AVPacket ");
+		
+		if (null != getFormat()) {
+			buf.append(getFormat().getEncoding());
+		} else {
+			buf.append("UNKNOWN");
+		}
+
+		buf.append(", ");
+		buf.append("key=").append(isKeyFrame()?"true ":"false");
+
+		long ts = getTimeStamp(TimeUnit.MILLISECONDS);
+		buf.append(", t=").append(DateFormatUtils.formatUTC(ts, "HH:mm:ss.SSS"));
+		
+		
+		buf.append(", ");
+		buf.append("size=").append(getLength());
+
+		return buf.toString();
+	}
 }
