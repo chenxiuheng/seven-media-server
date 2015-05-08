@@ -35,7 +35,7 @@ import org.jboss.netty.handler.codec.rtsp.RtspVersions;
 import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwen.media.server.rtp.video.h264.H264AVStream;
+import org.zwen.media.server.rtsp.sdp.video.h264.H264AVStream;
 
 import com.biasedbit.efflux.participant.RtpParticipant;
 import com.biasedbit.efflux.session.RtpSession;
@@ -211,12 +211,20 @@ public class RtspClient implements Closeable {
 		}
 
 		int payloadType = getPayloadType(md);
+		
+		// receiver
+		String recvHost = "0.0.0.0";
+		Integer recvRTPPort = Integer.valueOf(clientPorts[0]);
+		Integer recvRTCPPort = Integer.valueOf(clientPorts[1]);
 		RtpParticipant localParticipant = RtpParticipant.createReceiver(
-				"0.0.0.0", Integer.valueOf(clientPorts[0]), Integer
-						.valueOf(clientPorts[1]));
-		RtpParticipant remoteParticipant = RtpParticipant.createReceiver(stack
-				.getHost(), Integer.valueOf(serverPorts[0]), Integer
-				.valueOf(serverPorts[1]));
+				recvHost, recvRTPPort, recvRTCPPort);
+
+		// sender
+		String sndHost = stack.getHost();
+		Integer sndRTPPort = Integer.valueOf(serverPorts[0]);
+		Integer sndRTCPPort = Integer.valueOf(serverPorts[1]);
+		RtpParticipant remoteParticipant = RtpParticipant.createReceiver(
+				sndHost, sndRTPPort, sndRTCPPort);
 
 		if (null != ssrc) {
 			localParticipant.getInfo().setSsrc(Integer.valueOf(ssrc, 16));
