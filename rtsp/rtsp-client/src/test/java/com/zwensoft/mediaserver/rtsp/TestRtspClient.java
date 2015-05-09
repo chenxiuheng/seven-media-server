@@ -10,10 +10,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.media.Buffer;
 import javax.sdp.MediaDescription;
@@ -26,13 +29,16 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwen.media.core.MediaFrame;
-import org.zwen.media.core.file.flv.FlvWriter;
-import org.zwen.media.server.rtp.video.h264.DePacketizer;
-import org.zwen.media.server.rtp.video.h264.FmtpValues;
-import org.zwen.media.server.rtp.video.h264.H264AVStream;
-import org.zwen.media.server.rtsp.NoPortAvailableException;
-import org.zwen.media.server.rtsp.RtspClient;
+import org.zwen.media.AVPacket;
+import org.zwen.media.AVStreamListener;
+import org.zwen.media.AVStream;
+import org.zwen.media.file.flv.FlvWriter;
+import org.zwen.media.protocol.rtsp.NoPortAvailableException;
+import org.zwen.media.protocol.rtsp.RtspClient;
+import org.zwen.media.protocol.rtsp.sdp.video.h264.FmtpValues;
+import org.zwen.media.protocol.rtsp.sdp.video.h264.H264Receiver;
+import org.zwen.media.rtp.JitterBuffer;
+import org.zwen.media.rtp.codec.video.h264.DePacketizer;
 
 import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipantInfo;
@@ -80,75 +86,46 @@ public class TestRtspClient extends TestCase {
 			InterruptedException, IOException {
 		String url = "rtsp://172.16.160.200:554";
 		RtspClient client = new RtspClient(url, "admin", "admin");
-		client.connect();
-		List<H264AVStream> streams = client.getStreams();
-		for (H264AVStream avStream : streams) {
-			FmtpValues values = avStream.getFmtpAttribute();
-			if (null == values) {
-				continue;
+
+		client.addListener(new AVStreamListener() {
+			final FlvWriter writer;
+			{
+				File file = new File("test.flv");
+				writer = new FlvWriter(new FileOutputStream(file).getChannel());
 			}
-
-			String profile = values.getValue("profile-level-id");
-			logger.warn("profile = {}", profile);
-
-			String sps_pps = values.getValue("sprop-parameter-sets");
-			if (null != sps_pps && sps_pps.contains(",")) {
-				String[] segs = StringUtils.split(sps_pps, ',');
-				byte[] sps = Base64.decodeBase64(segs[0].getBytes());
-				byte[] pps = Base64.decodeBase64(segs[1].getBytes());
-
-				logger
-						.warn("sps.byte[{}] = {}", sps.length, Hex
-								.encodeHex(sps));
-				logger
-						.warn("pps.byte[{}] = {}", pps.length, Hex
-								.encodeHex(pps));
-			}
-		}
-
-		final FlvWriter writer;
-		File file = new File("test.flv");
-		writer = new FlvWriter(new FileOutputStream(file).getChannel());
-		
-		writer.setStreams(streams);
-		
-		writer.writeHead();
-		
-
-		client.start(new RtpSessionDataListener() {
-			private DePacketizer dePacketizer = new DePacketizer();
-			private List<MediaFrame> out = new LinkedList<MediaFrame>();
-			boolean isFirst = true;
-			long ptsOffset = 0;
 
 			@Override
-			public void dataPacketReceived(RtpSession session,
-					RtpParticipantInfo participant, DataPacket packet) {
-				dePacketizer.depacket(packet, out);
-				if (!out.isEmpty()) {
-					MediaFrame buf = out.remove(0);
-					logger.warn("key={}, t={}.{}, l= {}", new Object[] {
-							(buf.getFlags() & Buffer.FLAG_KEY_FRAME) > 0,
-							buf.getTimeStamp() / (90 * 1000),
-							buf.getTimeStamp() / 90 % 1000, buf.getLength() });
-					
-					if (isFirst && !buf.isKeyFrame()) {
-						System.out.println("I am waiting first key frame");
-						return;
-					} else if (isFirst) {
-						isFirst = false;
-						ptsOffset = buf.getTimeStamp();
-					}
+			public void onSetup(AVStream[] streams) {
+				writer.setStreams(Arrays.asList(streams));
+				try {
+					writer.writeHead();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 
-					try {
-						buf.setTimeStamp(buf.getTimeStamp() - ptsOffset);
-						writer.write(buf);
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
+			@Override
+			public void onPacket(AVStream stream, AVPacket packet) {
+				try {
+					writer.write(packet);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			@Override
+			public void onClosed() {
+				try {
+					writer.close();
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
 			}
 		});
+
+		client.connect();
+		client.start();
 
 		Thread.sleep(3 * 60 * 1000);
 		client.close();
