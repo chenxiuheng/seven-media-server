@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -96,6 +97,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		Vector<MediaDescription> mediaDescriptions = sessionDescription.getMediaDescriptions(false);
 		assertNotNull(mediaDescriptions);
 
+		AtomicLong syncClock = new AtomicLong(700);
 		List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
 		Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions.iterator();
 		while(iter.hasNext()) {
@@ -106,7 +108,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 				continue;
 			}
 			if (formats.contains("96")) {
-				streams.add(new H264Receiver(ms));
+				streams.add(new H264Receiver(syncClock, ms));
 			} else {
 				logger.error("unsupported[{}]", ms.getMedia());
 			}

@@ -11,7 +11,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import javax.media.format.VideoFormat;
 
@@ -22,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamExtra;
+import org.zwen.media.AVTimeUnit;
 import org.zwen.media.Constants;
 import org.zwen.media.protocol.rtsp.sdp.video.h264.H264AVStreamExtra;
 
@@ -151,12 +151,11 @@ public class FlvWriter implements Closeable {
 		avc.writeMedium(0); // tag data size
 		
 		// timestamp
-		long timestamp = frame.getTimeStamp(TimeUnit.MILLISECONDS);
+		long timestamp = frame.getTimeStamp(AVTimeUnit.MILLISECONDS);
 		avc.writeMedium((int)(0xFFFFFF & timestamp));
 		avc.writeByte((int)(0xFF & (timestamp >> 24)));
-		
+
 		avc.writeMedium(0x0); // stream id
-		
 		
 		avc.writeByte(frame.isKeyFrame() ? 0x27 : 0x17); // key frame + avc
 		avc.writeByte(0x01); // avc NAL

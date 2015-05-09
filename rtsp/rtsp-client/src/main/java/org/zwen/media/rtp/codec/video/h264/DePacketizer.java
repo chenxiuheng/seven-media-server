@@ -1,6 +1,7 @@
 package org.zwen.media.rtp.codec.video.h264;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import javax.media.Buffer;
 import javax.media.format.VideoFormat;
@@ -8,6 +9,7 @@ import javax.media.format.VideoFormat;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.zwen.media.AVPacket;
+import org.zwen.media.AVTimeUnit;
 import org.zwen.media.Constants;
 import org.zwen.media.rtp.codec.IDePacketizer;
 
@@ -149,7 +151,7 @@ public class DePacketizer implements IDePacketizer {
 			frame.readBytes(data);
 			frame.clear();
 			
-			AVPacket buf = new AVPacket();
+			AVPacket buf = new AVPacket(AVTimeUnit.MILLISECONDS_90);
 			buf.setDiscard(discard);
 			buf.setData(data);
 			buf.setDuration(40);

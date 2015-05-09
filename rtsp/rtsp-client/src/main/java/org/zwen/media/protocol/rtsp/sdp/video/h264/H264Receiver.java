@@ -2,6 +2,9 @@ package org.zwen.media.protocol.rtsp.sdp.video.h264;
 
 
 
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.media.format.VideoFormat;
 import javax.sdp.MediaDescription;
 
 import org.apache.commons.codec.DecoderException;
@@ -11,6 +14,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVStreamExtra;
+import org.zwen.media.Constants;
 import org.zwen.media.protocol.rtsp.RtpReceiver;
 import org.zwen.media.rtp.codec.video.h264.DePacketizer;
 
@@ -18,14 +22,10 @@ import org.zwen.media.rtp.codec.video.h264.DePacketizer;
 public class H264Receiver extends RtpReceiver {
 	private static Logger logger = LoggerFactory.getLogger(H264Receiver.class);
 	
-	public H264Receiver(MediaDescription md) {
-		super(md, new DePacketizer());
+	public H264Receiver(AtomicLong sysClock, MediaDescription md) {
+		super(sysClock, new VideoFormat(Constants.H264_RTP), md, new DePacketizer());
 	}
 
-	@Override
-	public boolean isVideo() {
-		return true;
-	}
 
 	@Override
 	public AVStreamExtra getExtra() {

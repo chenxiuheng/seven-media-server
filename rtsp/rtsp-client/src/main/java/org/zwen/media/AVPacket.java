@@ -11,9 +11,11 @@ import org.apache.commons.lang3.time.DateFormatUtils;
 
 public class AVPacket {
 	private Buffer buffer;
+	private AVTimeUnit timeunit;
 
-	public AVPacket() {
+	public AVPacket(AVTimeUnit unit) {
 		this(new Buffer());
+		this.timeunit = unit;
 	}
 
 	public AVPacket(Buffer buf) {
@@ -70,6 +72,10 @@ public class AVPacket {
 	public void setTimeStamp(long timestamp) {
 		buffer.setTimeStamp(timestamp);
 	}
+	
+	public void setTimeStamp(long timestamp, AVTimeUnit unit) {
+		buffer.setTimeStamp(timeunit.convert(timestamp, unit));
+	}
 
 
 	public void setDuration(long duration) {
@@ -92,8 +98,8 @@ public class AVPacket {
 		return buffer.getTimeStamp();
 	}
 	
-	public long getTimeStamp(TimeUnit unit) {
-		return TimeUnit.MILLISECONDS.convert(getTimeStamp() / 90, unit);
+	public long getTimeStamp(AVTimeUnit unit) {
+		return unit.convert(getTimeStamp(), this.timeunit);
 	}
 
 	public int getLength() {
@@ -104,7 +110,14 @@ public class AVPacket {
 		return buffer.getOffset();
 	}
 
+	public long getDuration(AVTimeUnit unit) {
+		return unit.convert(buffer.getDuration(), this.timeunit);
+	}
 	
+	public AVTimeUnit getTimeunit() {
+		return timeunit;
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder buf = new StringBuilder("AVPacket ");
@@ -118,7 +131,7 @@ public class AVPacket {
 		buf.append(", ");
 		buf.append("key=").append(isKeyFrame()?"true ":"false");
 
-		long ts = getTimeStamp(TimeUnit.MILLISECONDS);
+		long ts = getTimeStamp(AVTimeUnit.MILLISECONDS);
 		buf.append(", t=").append(DateFormatUtils.formatUTC(ts, "HH:mm:ss.SSS"));
 		
 		

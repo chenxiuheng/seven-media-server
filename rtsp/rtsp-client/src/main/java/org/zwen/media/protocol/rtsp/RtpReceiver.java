@@ -5,7 +5,9 @@ import gov.nist.javax.sdp.fields.MediaField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.atomic.AtomicLong;
 
+import javax.media.Format;
 import javax.sdp.MediaDescription;
 import javax.sdp.SdpParseException;
 
@@ -36,7 +38,8 @@ public abstract class RtpReceiver extends AVStream {
 	private RtpSession session;
 	private IDePacketizer dePacketizer;
 
-	public RtpReceiver(MediaDescription md, IDePacketizer dePacketizer) {
+	public RtpReceiver(AtomicLong sysClock, Format format, MediaDescription md, IDePacketizer dePacketizer) {
+		super(sysClock, format);
 		this.md = md;
 		this.dePacketizer = dePacketizer;
 
@@ -57,14 +60,6 @@ public abstract class RtpReceiver extends AVStream {
 
 	public int getPayloadType() {
 		return payloadType;
-	}
-
-	public boolean isVideo() {
-		return false;
-	}
-
-	public boolean isAudio() {
-		return true;
 	}
 
 	public MediaField getMedia() {
@@ -146,7 +141,9 @@ public abstract class RtpReceiver extends AVStream {
 					dePacketizer.process(last, out);
 					
 					while(!out.isEmpty()) {
-						dispatcher.firePacket(RtpReceiver.this, out.remove(0));
+						AVPacket pkt = out.remove(0);
+						syncTimestamp(pkt);
+						dispatcher.firePacket(RtpReceiver.this, pkt);
 					}
 				}
 			}
