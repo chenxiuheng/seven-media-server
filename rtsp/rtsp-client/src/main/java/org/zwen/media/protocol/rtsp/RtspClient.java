@@ -8,6 +8,7 @@ import gov.nist.javax.sdp.parser.SDPParser;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -35,21 +36,13 @@ import org.jboss.netty.handler.codec.rtsp.RtspVersions;
 import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwen.media.AVPacket;
 import org.zwen.media.AVStreamDispatcher;
-import org.zwen.media.protocol.rtsp.sdp.video.h264.H264AVStream;
-import org.zwen.media.rtp.JitterBuffer;
-import org.zwen.media.rtp.codec.IDePacketizer;
+import org.zwen.media.protocol.rtsp.sdp.video.h264.H264Receiver;
 
-import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipant;
-import com.biasedbit.efflux.participant.RtpParticipantInfo;
-import com.biasedbit.efflux.session.RtpSession;
-import com.biasedbit.efflux.session.RtpSessionDataListener;
-import com.biasedbit.efflux.session.SingleParticipantSession;
 
 public class RtspClient extends AVStreamDispatcher implements Closeable {
-	private static final RTPAVStream[] AVSTREMS_EMPTY = new RTPAVStream[0];
+	private static final RtpReceiver[] AVSTREMS_EMPTY = new RtpReceiver[0];
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(RtspClient.class);
@@ -59,7 +52,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 	private String pass;
 	private RtspClientStack stack;
 
-	private RTPAVStream[] avstreams = AVSTREMS_EMPTY;
+	private RtpReceiver[] avstreams = AVSTREMS_EMPTY;
 	
 	public RtspClient(String url, String user, String pass) {
 		this.url = url;
@@ -81,8 +74,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		stack = new RtspClientStack(host, port);
 	}
 
-	@SuppressWarnings("unchecked")
-	public void connect() throws SdpException {
+	public void connect() throws SdpException, ConnectException {
 		stack.connect();
 		
 		HttpResponse resp = null;
@@ -92,11 +84,19 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 			resp = option(user, pass);
 		}
 
+		if (resp.getStatus().getCode() != 200) {
+			throw new ConnectException("Fail connect [" + url + "],  " + resp.getStatus());
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	public void start() throws NoPortAvailableException, SdpException {
+		// describe
 		SessionDescription sessionDescription = describe();
 		Vector<MediaDescription> mediaDescriptions = sessionDescription.getMediaDescriptions(false);
 		assertNotNull(mediaDescriptions);
 
-		List<RTPAVStream> streams = new ArrayList<RTPAVStream>();
+		List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
 		Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions.iterator();
 		while(iter.hasNext()) {
 			MediaDescription ms = iter.next();
@@ -106,29 +106,26 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 				continue;
 			}
 			if (formats.contains("96")) {
-				streams.add(new H264AVStream(ms));
+				streams.add(new H264Receiver(ms));
 			} else {
 				logger.error("unsupported[{}]", ms.getMedia());
 			}
 		}
 		this.avstreams = streams.toArray(AVSTREMS_EMPTY);
-	}
-	
-	public void start() throws SdpParseException, NoPortAvailableException {
+		
+		
+		// setup
 		for (int i = 0; i < avstreams.length; i++) {
-			RTPAVStream stream = avstreams[i];
-			MediaDescription md = stream.getMediaDescription();
-			
-			RtpSession session = setup(md);
-			JitterBuffer buffer = new JitterBuffer(stream.isVideo() ? 128 : 4);
-			session.addDataListener(new DataPakcetListener(stream, buffer));
-			
-			stream.setRtpSession(session);
-			session.init();
+			RtpReceiver stream = avstreams[i];
+			boolean connect = connect(stream);
+			if (!connect) {
+				logger.warn("{} Connect Fail", stream);
+			}
 		}
 
 		fireSetup(avstreams);
 
+		// play
 		play();
 	}
 	
@@ -178,8 +175,10 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		return sd;
 	}
 
-	private RtpSession setup(MediaDescription md)
+	private boolean connect(RtpReceiver stream)
 			throws NoPortAvailableException, SdpParseException {
+		MediaDescription md = stream.getMediaDescription();
+		
 		String url;
 		if (this.url.endsWith("/")) {
 			url = this.url + md.getAttribute("control");
@@ -222,7 +221,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 			}
 		}
 
-		int payloadType = getPayloadType(md);
+		int payloadType = stream.getPayloadType();
 		
 		// receiver
 		String recvHost = "0.0.0.0";
@@ -242,10 +241,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 			localParticipant.getInfo().setSsrc(Integer.valueOf(ssrc, 16));
 		}
 
-		RtpSession rtp = new SingleParticipantSession(stack.getSessionId(),
-				payloadType, localParticipant, remoteParticipant);
-
-		return rtp;
+		return stream.connect(stack.getSessionId(), localParticipant, remoteParticipant, this);
 	}
 
 	private int getPayloadType(MediaDescription md) {
@@ -292,7 +288,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 				stack.close();
 			}
 		} finally {
-			for (RTPAVStream stream : avstreams) {
+			for (RtpReceiver stream : avstreams) {
 				if (null == stream.getSession()) {
 					continue;
 				}
@@ -308,35 +304,4 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		fireClosed();
 	}
 	
-	private final class DataPakcetListener implements RtpSessionDataListener {
-		private RTPAVStream avStream;
-		private IDePacketizer dePacketizer;
-		private JitterBuffer buffer;
-		private List<AVPacket> out = new ArrayList<AVPacket>(4);
-		
-		public DataPakcetListener(RTPAVStream stream, JitterBuffer buffer) {
-			this.avStream = stream;
-			this.dePacketizer = stream.getDePacketizer();
-			this.buffer = buffer;
-		};
-		
-		@Override
-		public void dataPacketReceived(RtpSession session,
-				RtpParticipantInfo participant, DataPacket packet) {
-			DataPacket pkt = buffer.add(packet);
-			
-			
-			if (null != pkt) {
-				dePacketizer.process(packet, out);
-			}
-
-			while(!out.isEmpty()) {
-				AVPacket poped = out.remove(0);
-				firePacket(avStream, poped);
-				
-				System.out.println(poped);
-			}
-		}
-		
-	}
 }

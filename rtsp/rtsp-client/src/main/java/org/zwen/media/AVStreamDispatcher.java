@@ -10,7 +10,7 @@ public class AVStreamDispatcher {
 
 	private CopyOnWriteArrayList<AVStreamListener> listeners = new CopyOnWriteArrayList<AVStreamListener>();
 
-	protected void fireSetup(AVStream[] streams) {
+	public void fireSetup(AVStream[] streams) {
 		for (AVStreamListener lis : listeners) {
 			try {
 				lis.onSetup(streams);
@@ -20,7 +20,7 @@ public class AVStreamDispatcher {
 		}
 	}
 
-	protected void firePacket(AVStream stream, AVPacket pkt) {
+	public void firePacket(AVStream stream, AVPacket pkt) {
 		for (AVStreamListener lis : listeners) {
 			try {
 				lis.onPacket(stream, pkt);
@@ -30,7 +30,7 @@ public class AVStreamDispatcher {
 		}
 	}
 
-	protected void fireClosed() {
+	public void fireClosed() {
 		for (AVStreamListener lis : listeners) {
 			try {
 				lis.onClosed();

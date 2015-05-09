@@ -11,17 +11,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVStreamExtra;
-import org.zwen.media.protocol.rtsp.RTPAVStream;
+import org.zwen.media.protocol.rtsp.RtpReceiver;
 import org.zwen.media.rtp.codec.video.h264.DePacketizer;
 
 
-public class H264AVStream extends RTPAVStream {
-	private static Logger logger = LoggerFactory.getLogger(H264AVStream.class);
+public class H264Receiver extends RtpReceiver {
+	private static Logger logger = LoggerFactory.getLogger(H264Receiver.class);
 	
-	public H264AVStream(MediaDescription md) {
-		super(md);
-		
-		setDePacketizer(new DePacketizer());
+	public H264Receiver(MediaDescription md) {
+		super(md, new DePacketizer());
 	}
 
 	@Override

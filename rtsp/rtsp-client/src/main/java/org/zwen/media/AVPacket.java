@@ -34,7 +34,10 @@ public class AVPacket {
 
 	public void setDiscard(boolean discard) {
 		buffer.setDiscard(discard);
-
+	}
+	
+	public boolean isDiscard() {
+		return buffer.isDiscard();
 	}
 
 	public void setData(byte[] data) {
@@ -121,6 +124,11 @@ public class AVPacket {
 		
 		buf.append(", ");
 		buf.append("size=").append(getLength());
+		
+		if (isDiscard()) {
+			buf.append(" ");
+			buf.append(" discard");
+		}
 
 		return buf.toString();
 	}

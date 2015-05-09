@@ -2,40 +2,71 @@ package org.zwen.media.protocol.rtsp;
 
 import gov.nist.javax.sdp.fields.MediaField;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
 import javax.sdp.MediaDescription;
 import javax.sdp.SdpParseException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
+import org.zwen.media.AVStreamDispatcher;
 import org.zwen.media.protocol.rtsp.sdp.video.h264.FmtpValues;
+import org.zwen.media.rtp.JitterBuffer;
 import org.zwen.media.rtp.codec.IDePacketizer;
 
+import com.biasedbit.efflux.packet.DataPacket;
+import com.biasedbit.efflux.participant.RtpParticipant;
+import com.biasedbit.efflux.participant.RtpParticipantInfo;
 import com.biasedbit.efflux.session.RtpSession;
+import com.biasedbit.efflux.session.RtpSessionDataListener;
+import com.biasedbit.efflux.session.SingleParticipantSession;
 
-public abstract class RTPAVStream extends AVStream {
+public abstract class RtpReceiver extends AVStream {
 
 	private static final Logger logger = LoggerFactory
-			.getLogger(RTPAVStream.class);
+			.getLogger(RtpReceiver.class);
+	private int payloadType;
 	protected MediaDescription md;
 	private RtpSession session;
 	private IDePacketizer dePacketizer;
 
-	public RTPAVStream(MediaDescription md) {
+	public RtpReceiver(MediaDescription md, IDePacketizer dePacketizer) {
 		this.md = md;
+		this.dePacketizer = dePacketizer;
+
+		String rtpmap;
+		payloadType = 0;
+		try {
+			rtpmap = md.getAttribute("rtpmap");
+
+			if (null != rtpmap) {
+				String strValue = StringUtil.split(rtpmap, ' ')[0];
+				payloadType = Integer.valueOf(strValue);
+			}
+		} catch (SdpParseException e) {
+			logger.error(e.getMessage(), e);
+		}
+
+	}
+
+	public int getPayloadType() {
+		return payloadType;
 	}
 
 	public boolean isVideo() {
 		return false;
 	}
-	
+
 	public boolean isAudio() {
 		return true;
 	}
-	
+
 	public MediaField getMedia() {
 		try {
 			String a = md.getAttribute("m");
@@ -90,20 +121,38 @@ public abstract class RTPAVStream extends AVStream {
 		return String.valueOf(md);
 	}
 
-	public void setDePacketizer(IDePacketizer dePacketizer) {
-		this.dePacketizer = dePacketizer;
-	}
-
-	public IDePacketizer getDePacketizer() {
-		return dePacketizer;
-	};
 
 	public MediaDescription getMediaDescription() {
 		return md;
 	}
 
-	public void setRtpSession(RtpSession session) {
-		this.session = session;
+	public boolean connect(String id, RtpParticipant localParticipant,
+			RtpParticipant remoteParticipant,
+			final AVStreamDispatcher dispatcher) {
+		session = new SingleParticipantSession(id, payloadType,
+				localParticipant, remoteParticipant);
+
+		final List<AVPacket> out = new ArrayList<AVPacket>(4);
+		final JitterBuffer buffer = new JitterBuffer(isVideo() ? 64 : 4);
+
+		session.addDataListener(new RtpSessionDataListener() {
+
+			@Override
+			public void dataPacketReceived(RtpSession session,
+					RtpParticipantInfo participant, DataPacket packet) {
+				DataPacket last = buffer.add(packet);
+				
+				if (null != last) {
+					dePacketizer.process(last, out);
+					
+					while(!out.isEmpty()) {
+						dispatcher.firePacket(RtpReceiver.this, out.remove(0));
+					}
+				}
+			}
+		});
+		
+		return session.init();
 	}
 
 	public RtpSession getSession() {

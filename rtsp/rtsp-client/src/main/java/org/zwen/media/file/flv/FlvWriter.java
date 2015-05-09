@@ -170,7 +170,7 @@ public class FlvWriter implements Closeable {
 			avc.writeInt(data.readableBytes());
 			avc.writeBytes(data);
 		} else {
-			logger.warn("Cant Find Start Code");
+			logger.warn("Cant Find Start Code, {}", frame);
 			return;
 		}
 
