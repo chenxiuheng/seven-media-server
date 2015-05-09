@@ -26,7 +26,7 @@ public abstract class AVStream {
 	 * The stream must update lastClose
 	 *   when its own PTS left 700ms then sysClock,
 	 */
-	protected AtomicLong sysClock = new AtomicLong(0);
+	protected AtomicLong sysClock;
 	
 	/***
 	 * the increment of last two packets
