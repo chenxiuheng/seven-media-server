@@ -31,4 +31,15 @@ public class AVTimeUnit {
 	public String toString() {
 		return "TimeUnit " + num + "/" + base + "s";
 	}
+
+	public static AVTimeUnit valueOf(int base) {
+		switch (base) {
+		case 1000:
+			return MILLISECONDS;
+		case 90000:
+			return MILLISECONDS_90;
+		default:
+			return new AVTimeUnit(1, base);
+		}
+	}
 }

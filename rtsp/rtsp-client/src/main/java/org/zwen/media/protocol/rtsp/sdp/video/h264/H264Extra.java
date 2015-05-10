@@ -2,7 +2,7 @@ package org.zwen.media.protocol.rtsp.sdp.video.h264;
 
 import org.zwen.media.AVStreamExtra;
 
-public class H264AVStreamExtra implements AVStreamExtra {
+public class H264Extra implements AVStreamExtra {
 	private int packetMode;
 	private byte[] profile;
 	private byte[][] sps;

@@ -20,7 +20,7 @@ import org.zwen.media.AVPacket;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
 import org.zwen.media.Constants;
-import org.zwen.media.protocol.rtsp.sdp.video.h264.H264AVStreamExtra;
+import org.zwen.media.protocol.rtsp.sdp.video.h264.H264Extra;
 import org.zwen.media.rtp.codec.IDePacketizer;
 
 import com.biasedbit.efflux.packet.DataPacket;
@@ -44,10 +44,18 @@ public class DePacketizer implements IDePacketizer {
 	@Override
 	public AVStreamExtra depacketize(MediaDescription md) throws SdpException {
 		Matcher matcher;
-		H264AVStreamExtra extra = new H264AVStreamExtra();
+		H264Extra extra = new H264Extra();
+		
+		// rtpmap:96 H264/90000
+		String rtpmap = md.getAttribute(RTPMAP);
+		Matcher rtpMapParams = Pattern.compile(
+				"(\\d+) ([^/]+)(/(\\d+)(/([^/]+))?)?(.*)?").matcher(rtpmap);
+		if (rtpMapParams.matches()) {
+			timeUnit = AVTimeUnit.valueOf(Integer.valueOf(rtpMapParams.group(4)));
+		}
 		
 		// a=fmtp:96 packetization-mode=1;profile-level-id=4D001F;sprop-parameter-sets=Z00AH9oBQBbpUgAAAwACAAADAGTAgAC7fgAD9H973wvCIRqA,aM48gA==
-		String fmtp = md.getAttribute("fmtp");
+		String fmtp = md.getAttribute(FMTP);
 		if (null != fmtp) {
 			matcher = Pattern.compile("packetization-mode=([\\d]+)").matcher(fmtp);
 			if (matcher.find()) {
@@ -207,7 +215,7 @@ public class DePacketizer implements IDePacketizer {
 			buf.setData(data);
 			buf.setFormat(new VideoFormat(Constants.H264_RTP));
 			buf.setTimeStamp(timestamp);
-			buf.setTimeUnit(getTimeUnit());
+			buf.setTimeUnit(timeUnit);
 			if (nalType == 5) {
 				buf.setFlags(Buffer.FLAG_KEY_FRAME);
 			}
@@ -218,9 +226,6 @@ public class DePacketizer implements IDePacketizer {
 	
 	public void setTimeUnit(AVTimeUnit timeUnit) {
 		this.timeUnit = timeUnit;
-	}
-	public AVTimeUnit getTimeUnit() {
-		return timeUnit;
 	}
 
 }

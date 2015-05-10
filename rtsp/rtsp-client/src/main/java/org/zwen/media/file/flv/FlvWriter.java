@@ -23,7 +23,7 @@ import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
 import org.zwen.media.Constants;
-import org.zwen.media.protocol.rtsp.sdp.video.h264.H264AVStreamExtra;
+import org.zwen.media.protocol.rtsp.sdp.video.h264.H264Extra;
 
 import com.flazr.rtmp.message.MetadataAmf0;
 
@@ -81,8 +81,8 @@ public class FlvWriter implements Closeable {
 		// stream config(s)
 		for (AVStream stream : streams) {
 			AVStreamExtra extra = stream.getExtra();
-			if (extra instanceof H264AVStreamExtra) {
-				H264AVStreamExtra h264 = (H264AVStreamExtra) extra;
+			if (extra instanceof H264Extra) {
+				H264Extra h264 = (H264Extra) extra;
 				
 				ChannelBuffer avc = ChannelBuffers.buffer(128);
 				avc.writeByte(0x17); // key frame + avc

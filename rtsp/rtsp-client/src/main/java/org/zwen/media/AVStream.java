@@ -17,7 +17,6 @@ public abstract class AVStream {
 	public static final int UNKNOWN = -1;
 	private Format format;
 	private int frameRate = UNKNOWN;
-	private AVTimeUnit timeUnit = AVTimeUnit.MILLISECONDS;
 	protected AVStreamExtra extra;
 	
 	final public AVStreamExtra getExtra(){
@@ -158,13 +157,5 @@ public abstract class AVStream {
 	
 	public Format getFormat() {
 		return format;
-	}
-	
-	public AVTimeUnit getTimeUnit() {
-		return timeUnit;
-	}
-	
-	public void setTimeUnit(AVTimeUnit timeUnit) {
-		this.timeUnit = timeUnit;
 	}
 }

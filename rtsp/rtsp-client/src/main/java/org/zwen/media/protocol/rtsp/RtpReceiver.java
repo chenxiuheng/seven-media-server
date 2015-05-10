@@ -16,8 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamDispatcher;
-import org.zwen.media.AVStreamExtra;
-import org.zwen.media.AVTimeUnit;
 import org.zwen.media.rtp.JitterBuffer;
 import org.zwen.media.rtp.codec.IDePacketizer;
 import org.zwen.media.rtp.codec.video.h264.DePacketizer;
@@ -43,8 +41,6 @@ public class RtpReceiver extends AVStream {
 
 	public RtpReceiver(AtomicLong sysClock) {
 		super(sysClock);
-
-		setTimeUnit(AVTimeUnit.MILLISECONDS);
 	}
 
 	public boolean setMediaDescription(MediaDescription md) throws SdpException {
@@ -82,14 +78,13 @@ public class RtpReceiver extends AVStream {
 			// payload DePacketizer
 			if ("H264".equalsIgnoreCase(encoding)) {
 				this.dePacketizer = new DePacketizer();
+			} else if ("MP4V-ES".equalsIgnoreCase(encoding)
+					|| "mpeg4-generic".equalsIgnoreCase(encoding)
+					|| "enc-mpeg4-generic".equalsIgnoreCase(encoding)
+					|| "enc-generic-mp4".equalsIgnoreCase(encoding)) {
+				this.dePacketizer = new org.zwen.media.rtp.codec.audio.aac.DePacketizer();
 			}
 			
-			// clock rate
-			String clockRate = rtpMapParams.group(4);
-			if (null != stream && null != clockRate) {
-				AVTimeUnit unit = new AVTimeUnit(1, Integer.valueOf(clockRate));
-				stream.setTimeUnit(unit);
-			}
 			
 			// read stream's extra info
 			if (null != this.dePacketizer) {
@@ -98,13 +93,6 @@ public class RtpReceiver extends AVStream {
 		}
 		
 		return true;
-	}
-
-	public void setTimeUnit(AVTimeUnit unit) {
-		super.setTimeUnit(unit);
-		if (null != dePacketizer) {
-			dePacketizer.setTimeUnit(unit);
-		}
 	}
 
 	public void setStreamIndex(int streamIndex) {
