@@ -363,16 +363,10 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 	@Override
 	public void close() throws IOException {
 		try {
+			// inner jobs
 			timer.cancel();
 
-			if (null != stack && !stack.isClosed()) {
-				tearDown();
-				
-				stack.close();
-			}
-		} finally {
-
-			
+			// data receive jobs
 			for (RtpReceiver stream : avstreams) {
 				if (null == stream.getSession()) {
 					continue;
@@ -383,6 +377,15 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 				} catch (Exception e) {
 					logger.warn(e.getMessage(), e);
 				}
+			}
+			
+			// rtsp connection
+			if (null != stack) {
+				tearDown();
+			}
+		} finally {
+			if (null != stack) {
+				stack.close();
 			}
 		}
 
