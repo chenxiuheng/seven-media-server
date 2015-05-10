@@ -45,6 +45,7 @@ public class RtspClientStack implements Closeable {
 	private Channel channel;
 	private ClientBootstrap bootstrap;
 	private ConcurrentHashMap<String, AsynFuture> futures = new ConcurrentHashMap<String, AsynFuture>();
+	private boolean isClosed;
 
 	public RtspClientStack(String host, int port) {
 		super();
@@ -66,6 +67,10 @@ public class RtspClientStack implements Closeable {
 			authValue = headers.get(RtspHeaders.Names.AUTHORIZATION);
 		} else if (null != authValue) {
 			headers.add(RtspHeaders.Names.AUTHORIZATION, authValue);
+		}
+		
+		if (!headers.contains(RtspHeaders.Names.USER_AGENT)) {
+			headers.add(RtspHeaders.Names.USER_AGENT, "LibZwen/1.0.0 (Seven Streaming Media v1.0)");
 		}
 
 		futures.put(String.valueOf(seqNo), f);
@@ -98,9 +103,13 @@ public class RtspClientStack implements Closeable {
 		 */
 		String sessionId = response.headers().get(RtspHeaders.Names.SESSION);
 		if (null != sessionId) {
-			Matcher matcher = Pattern.compile("([^;]+)(;.*)?").matcher(sessionId);
+			Matcher matcher = Pattern.compile("([^;]+)(.*(timeout=([\\d]+)).*)?").matcher(sessionId);
 			if (matcher.matches()) {
 				this.sessionId = matcher.group(1);
+				// String timeout = matcher.group(4);
+				// if (null != timeout) {
+				// 	this.timeout = Integer.valueOf(timeout);
+				// }
 			}
 		}
 
@@ -148,7 +157,11 @@ public class RtspClientStack implements Closeable {
 		} finally {
 			bootstrap.getFactory().releaseExternalResources();
 		}
-
+		isClosed = true;
+	}
+	
+	public boolean isClosed() {
+		return isClosed;
 	}
 
 	private ClientBootstrap getBootstrap(final Executor executor) {

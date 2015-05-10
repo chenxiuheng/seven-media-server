@@ -13,6 +13,7 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Timer;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -26,6 +27,7 @@ import javax.sdp.SdpParseException;
 import javax.sdp.SessionDescription;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
@@ -56,10 +58,13 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 	private String user;
 	private String pass;
 	private RtspClientStack stack;
+	private boolean supportGetParameters = false;
 
+	private Timer timer;
 	private RtpReceiver[] avstreams = AVSTREMS_EMPTY;
 
 	public RtspClient(String url, String user, String pass) {
+		this.timer = new Timer(true);
 		this.url = url;
 		this.user = user;
 		this.pass = pass;
@@ -93,6 +98,11 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 			throw new ConnectException("Fail connect [" + url + "],  "
 					+ resp.getStatus());
 		}
+		
+		String options = resp.headers().get(RtspHeaders.Names.PUBLIC);
+		if (StringUtils.contains(options, "GET_PARAMETER")) {
+			supportGetParameters = true;
+		}
 	}
 
 
@@ -105,35 +115,6 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		}
 
 		return stack.send(request).get();
-	}
-
-	private SessionDescription describe() {
-		DefaultHttpRequest request = makeRequest(RtspMethods.DESCRIBE);
-		request.headers().add(RtspHeaders.Names.ACCEPT, "application/sdp");
-
-		HttpResponse resp = stack.send(request).get();
-		ChannelBuffer data = resp.getContent();
-		byte[] array = new byte[data.readableBytes()];
-		data.readBytes(array);
-		String sdp = new String(array);
-
-		SessionDescriptionImpl sd = new SessionDescriptionImpl();
-		StringTokenizer tokenizer = new StringTokenizer(sdp);
-		while (tokenizer.hasMoreChars()) {
-			String line = tokenizer.nextToken();
-
-			try {
-				SDPParser paser = ParserFactory.createParser(line);
-				if (null != paser) {
-					SDPField obj = paser.parse();
-					sd.addField(obj);
-				}
-			} catch (ParseException e) {
-				logger.warn("fail parse [{}]", line, e);
-			}
-		}
-
-		return sd;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -233,17 +214,47 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 			throw new ChannelException("MediaDescription Not Found");
 		}
 	}
+
+	private SessionDescription describe() {
+		DefaultHttpRequest request = makeRequest(RtspMethods.DESCRIBE);
+		request.headers().add(RtspHeaders.Names.ACCEPT, "application/sdp");
+
+		HttpResponse resp = stack.send(request).get();
+		ChannelBuffer data = resp.getContent();
+		byte[] array = new byte[data.readableBytes()];
+		data.readBytes(array);
+		String sdp = new String(array);
+
+		SessionDescriptionImpl sd = new SessionDescriptionImpl();
+		StringTokenizer tokenizer = new StringTokenizer(sdp);
+		while (tokenizer.hasMoreChars()) {
+			String line = tokenizer.nextToken();
+
+			try {
+				SDPParser paser = ParserFactory.createParser(line);
+				if (null != paser) {
+					SDPField obj = paser.parse();
+					sd.addField(obj);
+				}
+			} catch (ParseException e) {
+				logger.warn("fail parse [{}]", line, e);
+			}
+		}
+
+		return sd;
+	}
+
 	
 	private boolean setup(RtpReceiver stream)
 			throws NoPortAvailableException, SdpParseException {
 		MediaDescription md = stream.getMediaDescription();
 
-		String url;
+		final String controlUrl;
 		String control = md.getAttribute("control");
-		url = URLUtils.concat(this.url, control);
+		controlUrl = URLUtils.concat(this.url, control);
 
 		DefaultHttpRequest request = new DefaultHttpRequest(
-				RtspVersions.RTSP_1_0, RtspMethods.SETUP, url);
+				RtspVersions.RTSP_1_0, RtspMethods.SETUP, controlUrl);
 
 		int[] ports = PortManager.findAvailablePorts(2);
 		request.headers().add(
@@ -294,27 +305,29 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 			}
 		}
 
+		String sessionId = headers.get(RtspHeaders.Names.SESSION);
+		if (null != sessionId && supportGetParameters) {
+			Matcher matcher = Pattern.compile("([^;]+)(.*(timeout=([\\d]+)).*)?").matcher(sessionId);
+			if (matcher.matches()) {
+				String timeout = matcher.group(4);
+				if (null != timeout) {
+					int delay = 1000 * 10;
+					int period = 1000 * Integer.valueOf(timeout);
+					timer.schedule(new java.util.TimerTask() {
+						
+						@Override
+						public void run() {
+							getParameters(controlUrl);
+							
+						}
+					}, delay, period);
+				}
+			}
+		}
+		
+		
 		return stream.connect(stack.getSessionId(), localParticipant,
 				remoteParticipant, this);
-	}
-
-	private int getPayloadType(MediaDescription md) {
-		String rtpmap;
-		try {
-			rtpmap = md.getAttribute("rtpmap");
-
-			if (null == rtpmap) {
-				return 0;
-			} else {
-				String strValue = StringUtil.split(rtpmap, ' ')[0];
-				return Integer.valueOf(strValue);
-			}
-		} catch (SdpParseException e) {
-			logger.error(e.getMessage(), e);
-		}
-
-		return 0;
-
 	}
 
 	private HttpResponse play() {
@@ -322,6 +335,18 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		request.headers().set(RtspHeaders.Names.RANGE, "npt=0.000-");
 
 		return stack.send(request).get();
+	}
+	
+	private void tearDown() {
+		HttpRequest request = makeRequest(RtspMethods.TEARDOWN);
+
+		stack.send(request).get();
+	}
+	private void getParameters(String controlUrl) {
+		DefaultHttpRequest request = new DefaultHttpRequest(
+				RtspVersions.RTSP_1_0, RtspMethods.GET_PARAMETER, controlUrl);
+
+		HttpResponse response = stack.send(request).get();
 	}
 
 	private DefaultHttpRequest makeRequest(HttpMethod method) {
@@ -338,10 +363,16 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 	@Override
 	public void close() throws IOException {
 		try {
-			if (null == stack) {
+			timer.cancel();
+
+			if (null != stack && !stack.isClosed()) {
+				tearDown();
+				
 				stack.close();
 			}
 		} finally {
+
+			
 			for (RtpReceiver stream : avstreams) {
 				if (null == stream.getSession()) {
 					continue;
