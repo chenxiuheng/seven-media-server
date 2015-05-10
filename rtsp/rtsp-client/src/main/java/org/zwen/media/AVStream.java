@@ -18,7 +18,11 @@ public abstract class AVStream {
 	private Format format;
 	private int frameRate = UNKNOWN;
 	private AVTimeUnit timeUnit = AVTimeUnit.MILLISECONDS;
-	abstract public AVStreamExtra getExtra();
+	protected AVStreamExtra extra;
+	
+	final public AVStreamExtra getExtra(){
+		 return extra;
+	 }
 
 	/* used for PTS sync */
 	/** 
@@ -46,9 +50,8 @@ public abstract class AVStream {
 	 */
 	protected long lastPts = UNKNOWN;
 	
-	protected AVStream(AtomicLong sysClock, Format format) {
+	protected AVStream(AtomicLong sysClock) {
 		this.sysClock = sysClock;
-		this.format = format;
 		this.lastClock = sysClock.get();
 	}
 
@@ -85,6 +88,10 @@ public abstract class AVStream {
 		}
 	}
 
+	public void setFormat(Format format) {
+		this.format = format;
+	}
+	
 	private long getDefaultTimestampDifferent(long defaultDiff) {
 		long diff = defaultDiff;
 		if (defaultDiff < 700 && defaultDiff > 0) {

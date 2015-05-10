@@ -3,6 +3,7 @@ package org.zwen.media.protocol.rtsp.sdp.video.h264;
 import org.zwen.media.AVStreamExtra;
 
 public class H264AVStreamExtra implements AVStreamExtra {
+	private int packetMode;
 	private byte[] profile;
 	private byte[][] sps;
 	private byte[][] pps;
@@ -23,5 +24,13 @@ public class H264AVStreamExtra implements AVStreamExtra {
 	}
 	public void setPps(byte[][] pps) {
 		this.pps = pps;
+	}
+	
+	public void setPacketMode(int packetMode) {
+		this.packetMode = packetMode;
+	}
+	
+	public int getPacketMode() {
+		return packetMode;
 	}
 }

@@ -1,15 +1,26 @@
 package org.zwen.media.rtp.codec.video.h264;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.media.Buffer;
 import javax.media.format.VideoFormat;
+import javax.sdp.MediaDescription;
+import javax.sdp.SdpException;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
+import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
 import org.zwen.media.Constants;
+import org.zwen.media.protocol.rtsp.sdp.video.h264.H264AVStreamExtra;
 import org.zwen.media.rtp.codec.IDePacketizer;
 
 import com.biasedbit.efflux.packet.DataPacket;
@@ -19,6 +30,7 @@ import com.biasedbit.efflux.packet.DataPacket;
  * 
  */
 public class DePacketizer implements IDePacketizer {
+	private final static Logger LOGGER = LoggerFactory.getLogger(DePacketizer.class);
 	public final static byte sync_bytes[] = { 0, 0, 0, 1 };
 	
 	private AVTimeUnit timeUnit = AVTimeUnit.MILLISECONDS_90;
@@ -29,6 +41,45 @@ public class DePacketizer implements IDePacketizer {
 	public DePacketizer() {
 	}
 
+	@Override
+	public AVStreamExtra depacketize(MediaDescription md) throws SdpException {
+		Matcher matcher;
+		H264AVStreamExtra extra = new H264AVStreamExtra();
+		
+		// a=fmtp:96 packetization-mode=1;profile-level-id=4D001F;sprop-parameter-sets=Z00AH9oBQBbpUgAAAwACAAADAGTAgAC7fgAD9H973wvCIRqA,aM48gA==
+		String fmtp = md.getAttribute("fmtp");
+		if (null != fmtp) {
+			matcher = Pattern.compile("packetization-mode=([\\d]+)").matcher(fmtp);
+			if (matcher.find()) {
+				extra.setPacketMode(Integer.valueOf(matcher.group(1)));
+			}
+			
+			matcher = Pattern.compile("profile-level-id=([^;]+)").matcher(fmtp);
+			if (matcher.find()) {
+				try {
+					extra.setProfile(Hex.decodeHex(matcher.group(1).toCharArray()));
+				} catch (DecoderException e) {
+					throw new IllegalArgumentException("illegal profile " + matcher.group(1));
+				}
+			}
+			
+			matcher = Pattern.compile("sprop-parameter-sets=([^,]+),([^;]+)").matcher(fmtp);
+			if (matcher.find()) {
+				byte[] sps = Base64.decodeBase64(matcher.group(1).getBytes());
+				byte[] pps = Base64.decodeBase64(matcher.group(2).getBytes());
+				
+				extra.setSps(new byte[][]{sps});
+				extra.setPps(new byte[][]{pps});
+		
+				LOGGER.info("sps.byte[{}] = {}", sps.length, Hex.encodeHex(sps));
+				LOGGER.info("pps.byte[{}] = {}", pps.length, Hex.encodeHex(pps));
+			}
+		}
+		
+		return extra;
+	}
+	
+	
 	public void process(DataPacket packet, List<AVPacket> out) {
 		ChannelBuffer payload = packet.getData();
 		int nalUnitType;

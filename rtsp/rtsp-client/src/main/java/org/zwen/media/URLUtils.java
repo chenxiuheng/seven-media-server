@@ -1,24 +1,38 @@
 package org.zwen.media;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.io.FilenameUtils;
+
 public class URLUtils {
-	public static String concat(String base, String path) {
+	public static String getAbsoluteUrl(String base, String path) {
 		if (null == path) {
 			return base;
 		}
 		
-		if (Pattern.matches("(([a-z]+)://(.*))", path)) {
+		boolean isAbsolutePath = Pattern.matches("(([a-z]+)://(.*))", path);
+		if (isAbsolutePath) {
 			return path;
 		} else {
-			if (base.endsWith("/")) {
-				base = base.substring(0, base.length()-1);
-			}
-			if (!path.startsWith("/")) {
-				path = "/" + path;
-			}
 			
-			return base +  path;
+			if (path.startsWith("/")) {
+				Pattern pattern = Pattern.compile("([a-z]+://[^/]+)(/)?.*");
+				Matcher matcher = pattern.matcher(base);
+				if (!matcher.matches()) {
+					throw new IllegalArgumentException(base + " NOT URL?");
+				}
+				
+				return matcher.group(1) + path;
+			} else {
+				Pattern pattern = Pattern.compile("^[a-z]+://(.*)/([^/]*)$");
+				Matcher matcher = pattern.matcher(base);
+				if (matcher.matches()) {
+					return matcher.group(1) + path;
+				} else {
+					return base + "/" + path;
+				}
+			}
 		}		
 	}
 }

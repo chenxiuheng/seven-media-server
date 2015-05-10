@@ -19,8 +19,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.media.format.AudioFormat;
-import javax.media.format.VideoFormat;
 import javax.sdp.MediaDescription;
 import javax.sdp.SdpException;
 import javax.sdp.SdpParseException;
@@ -42,9 +40,7 @@ import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVStreamDispatcher;
-import org.zwen.media.AVTimeUnit;
 import org.zwen.media.URLUtils;
-import org.zwen.media.protocol.rtsp.sdp.video.h264.H264Receiver;
 
 import com.biasedbit.efflux.participant.RtpParticipant;
 
@@ -126,78 +122,40 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 					.getMediaDescriptions(false);
 			assertNotNull(mediaDescriptions);
 
-			AtomicLong syncClock = new AtomicLong(700);
+
+			// setup streams
+			AtomicLong syncClock = new AtomicLong(300);
 			List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
 			Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions
 					.iterator();
 			while (iter.hasNext()) {
-				MediaDescription ms = iter.next();
+				MediaDescription md = iter.next();
 
-				String proto = ms.getMedia().getProtocol();
-				String mediaType = ms.getMedia().getMediaType();
+				String proto = md.getMedia().getProtocol();
 				
 				boolean isUdp = "RTP/AVP".equalsIgnoreCase(proto) || "RTP/AVP/UDP".equalsIgnoreCase(proto);
 				if (!isUdp) {
 					throw new UnsupportedOperationException("unsupported proto [" + proto + "]");
 				}
-				Vector formats = ms.getMedia().getMediaFormats(false);
-				if (null == formats) {
-					continue;
-				}
-
+				
 				RtpReceiver stream = null;
-				for (Object item : formats) {
-					stream = null;
-					String format = (String)item;
-					String rtpmap = ms.getAttribute("rtpmap");
-					String fmtp = ms.getAttribute("fmtp");
-					
-					if (null == rtpmap || !rtpmap.startsWith(format)) {
-						logger.warn("rtpmap is NULL for {}", ms.getMedia());
-						continue;
-					}
-					
-					Matcher rtpMapParams = Pattern.compile(
-							"(\\d+) ([^/]+)(/(\\d+)(/([^/]+))?)?(.*)?")
-							.matcher(rtpmap);
-					if (!rtpMapParams.matches()) {
-						logger.warn("{} is NOT legal rtpmap", rtpmap);
-						continue;
-					}
-					
-					String encoding = rtpMapParams.group(2);
-					String clockRate = rtpMapParams.group(4);
-					if ("H264".equals(encoding)) {
-						stream = new H264Receiver(syncClock, ms);
-					} else if ("audio".equalsIgnoreCase(mediaType)){
-						stream = new RtpReceiver(syncClock,new AudioFormat(encoding), ms, null);
-					} else if ("video".equalsIgnoreCase(mediaType)) {
-						stream = new RtpReceiver(syncClock,new VideoFormat(encoding), ms, null);
-					}
-
-					if (null != stream && null != clockRate) {
-						AVTimeUnit unit = new AVTimeUnit(1, Integer.valueOf(clockRate));
-						stream.setTimeUnit(unit);
-					}
-				}
-
-				if (null == stream) {
-					logger.error("unsupported[{}]", ms.getMedia());
-				} else  {
+				stream = new RtpReceiver(syncClock);
+				boolean success = stream.setMediaDescription(md);
+				if (success) {
 					stream.setStreamIndex(streams.size());
 					streams.add(stream);
+					
+					boolean connect = setup(stream, md);
+					if (!connect) {
+						logger.warn("{} Connect Fail", stream);
+					}
+				} else {
+					logger.error("unsupported[{}]", md.getMedia());
 				}
+				
+				
 			}
 			this.avstreams = streams.toArray(AVSTREMS_EMPTY);
-
-			// setup
-			for (int i = 0; i < avstreams.length; i++) {
-				RtpReceiver stream = avstreams[i];
-				boolean connect = setup(stream);
-				if (!connect) {
-					logger.warn("{} Connect Fail", stream);
-				}
-			}
 			fireSetup(avstreams);
 
 			// play
@@ -245,13 +203,11 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 	}
 
 	
-	private boolean setup(RtpReceiver stream)
+	private boolean setup(RtpReceiver stream, MediaDescription md)
 			throws NoPortAvailableException, SdpParseException {
-		MediaDescription md = stream.getMediaDescription();
-
 		final String controlUrl;
 		String control = md.getAttribute("control");
-		controlUrl = URLUtils.concat(this.url, control);
+		controlUrl = URLUtils.getAbsoluteUrl(this.url, control);
 
 		DefaultHttpRequest request = new DefaultHttpRequest(
 				RtspVersions.RTSP_1_0, RtspMethods.SETUP, controlUrl);

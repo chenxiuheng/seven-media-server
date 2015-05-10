@@ -1,18 +1,16 @@
 package org.zwen.media.protocol.rtsp;
 
-import gov.nist.javax.sdp.fields.MediaField;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import javax.media.Format;
+import javax.media.format.AudioFormat;
+import javax.media.format.VideoFormat;
 import javax.sdp.MediaDescription;
-import javax.sdp.SdpParseException;
+import javax.sdp.SdpException;
 
-import org.apache.commons.lang3.StringUtils;
-import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
@@ -20,9 +18,9 @@ import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamDispatcher;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
-import org.zwen.media.protocol.rtsp.sdp.video.h264.FmtpValues;
 import org.zwen.media.rtp.JitterBuffer;
 import org.zwen.media.rtp.codec.IDePacketizer;
+import org.zwen.media.rtp.codec.video.h264.DePacketizer;
 
 import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipant;
@@ -39,31 +37,67 @@ public class RtpReceiver extends AVStream {
 	private int payloadType;
 	private int streamIndex;
 
-	protected MediaDescription md;
 	private RtpSession session;
 	private IDePacketizer dePacketizer;
 	private long lastNumSeq = 0;
 
-	public RtpReceiver(AtomicLong sysClock, Format format, MediaDescription md,
-			IDePacketizer dePacketizer) {
-		super(sysClock, format);
-		this.md = md;
-		this.dePacketizer = dePacketizer;
-
-		String rtpmap;
-		payloadType = 0;
-		try {
-			rtpmap = md.getAttribute("rtpmap");
-
-			if (null != rtpmap) {
-				String strValue = StringUtil.split(rtpmap, ' ')[0];
-				payloadType = Integer.valueOf(strValue);
-			}
-		} catch (SdpParseException e) {
-			logger.error(e.getMessage(), e);
-		}
+	public RtpReceiver(AtomicLong sysClock) {
+		super(sysClock);
 
 		setTimeUnit(AVTimeUnit.MILLISECONDS);
+	}
+
+	public boolean setMediaDescription(MediaDescription md) throws SdpException {
+		String mediaType = md.getMedia().getMediaType();
+		RtpReceiver stream = null;
+		for (Object item : md.getMedia().getMediaFormats(true)) {
+			stream = null;
+			String format = (String) item;
+			String rtpmap = md.getAttribute("rtpmap");
+			String fmtp = md.getAttribute("fmtp");
+
+			if (null == rtpmap || !rtpmap.startsWith(format)) {
+				logger.warn("rtpmap is NULL for {}", md.getMedia());
+				continue;
+			}
+
+			Matcher rtpMapParams = Pattern.compile(
+					"(\\d+) ([^/]+)(/(\\d+)(/([^/]+))?)?(.*)?").matcher(rtpmap);
+			if (!rtpMapParams.matches()) {
+				logger.warn("{} is NOT legal rtpmap", rtpmap);
+				return false;
+			}
+
+			// payload type
+			this.payloadType = Integer.valueOf(rtpMapParams.group(1));
+
+			// media format
+			String encoding = rtpMapParams.group(2);
+			if ("audio".equalsIgnoreCase(mediaType)) {
+				setFormat(new AudioFormat(encoding));
+			} else if ("video".equalsIgnoreCase(mediaType)) {
+				setFormat(new VideoFormat(encoding));
+			}
+
+			// payload DePacketizer
+			if ("H264".equalsIgnoreCase(encoding)) {
+				this.dePacketizer = new DePacketizer();
+			}
+			
+			// clock rate
+			String clockRate = rtpMapParams.group(4);
+			if (null != stream && null != clockRate) {
+				AVTimeUnit unit = new AVTimeUnit(1, Integer.valueOf(clockRate));
+				stream.setTimeUnit(unit);
+			}
+			
+			// read stream's extra info
+			if (null != this.dePacketizer) {
+				this.extra = this.dePacketizer.depacketize(md);
+			}
+		}
+		
+		return true;
 	}
 
 	public void setTimeUnit(AVTimeUnit unit) {
@@ -83,64 +117,6 @@ public class RtpReceiver extends AVStream {
 
 	public int getPayloadType() {
 		return payloadType;
-	}
-
-	public MediaField getMedia() {
-		try {
-			String a = md.getAttribute("m");
-			if (null == a) {
-				return null;
-			}
-
-			MediaField field = new MediaField();
-
-			String[] valus = StringUtils.split(a, ' ');
-			if (valus.length > 0) {
-				field.setMedia(valus[0]);
-			}
-			if (valus.length > 1) {
-				field.setNports(Integer.valueOf(valus[1]));
-			}
-
-			if (valus.length > 2) {
-				field.setProto(valus[3]);
-			}
-
-			Vector<String> formats = new Vector<String>();
-			for (int i = 3; i < valus.length; i++) {
-				formats.add(valus[i]);
-			}
-			field.setFormats(formats);
-			return field;
-		} catch (SdpParseException e) {
-			logger.warn("msg = {}, type = {}", e.getMessage(), e.getClass());
-		}
-
-		return null;
-	}
-
-	public FmtpValues getFmtpAttribute() {
-		FmtpValues attr = null;
-
-		try {
-			String fmtp = md.getAttribute(FmtpValues.FMTP);
-			if (null != fmtp) {
-				attr = FmtpValues.parse(fmtp);
-			}
-		} catch (SdpParseException e) {
-			logger.warn("msg = {}, type = {}", e.getMessage(), e.getClass());
-		}
-
-		return attr;
-	}
-
-	@Override
-	public String toString() {
-		return String.valueOf(md);
-	}
-
-	public MediaDescription getMediaDescription() {
-		return md;
 	}
 
 	public boolean connect(String id, RtpParticipant localParticipant,
@@ -167,7 +143,8 @@ public class RtpReceiver extends AVStream {
 					if (null != last) {
 						// check rtp lost?
 						if (lastNumSeq + 1 != last.getSequenceNumber()) {
-							logger.info("last data packet, except {} but {}", lastNumSeq + 1, last.getSequenceNumber());
+							logger.info("last data packet, except {} but {}",
+									lastNumSeq + 1, last.getSequenceNumber());
 						}
 						lastNumSeq = last.getSequenceNumber();
 
@@ -190,10 +167,6 @@ public class RtpReceiver extends AVStream {
 
 	public RtpSession getSession() {
 		return session;
-	}
-
-	public AVStreamExtra getExtra() {
-		return null;
 	}
 
 }
