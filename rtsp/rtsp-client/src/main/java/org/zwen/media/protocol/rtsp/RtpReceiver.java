@@ -18,6 +18,8 @@ import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamDispatcher;
+import org.zwen.media.AVStreamExtra;
+import org.zwen.media.AVTimeUnit;
 import org.zwen.media.protocol.rtsp.sdp.video.h264.FmtpValues;
 import org.zwen.media.rtp.JitterBuffer;
 import org.zwen.media.rtp.codec.IDePacketizer;
@@ -25,20 +27,25 @@ import org.zwen.media.rtp.codec.IDePacketizer;
 import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipant;
 import com.biasedbit.efflux.participant.RtpParticipantInfo;
+import com.biasedbit.efflux.session.DefaultRtpSession;
 import com.biasedbit.efflux.session.RtpSession;
 import com.biasedbit.efflux.session.RtpSessionDataListener;
 import com.biasedbit.efflux.session.SingleParticipantSession;
 
-public abstract class RtpReceiver extends AVStream {
+public class RtpReceiver extends AVStream {
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(RtpReceiver.class);
 	private int payloadType;
+	private int streamIndex;
+
 	protected MediaDescription md;
 	private RtpSession session;
 	private IDePacketizer dePacketizer;
+	private long lastNumSeq = 0;
 
-	public RtpReceiver(AtomicLong sysClock, Format format, MediaDescription md, IDePacketizer dePacketizer) {
+	public RtpReceiver(AtomicLong sysClock, Format format, MediaDescription md,
+			IDePacketizer dePacketizer) {
 		super(sysClock, format);
 		this.md = md;
 		this.dePacketizer = dePacketizer;
@@ -56,6 +63,22 @@ public abstract class RtpReceiver extends AVStream {
 			logger.error(e.getMessage(), e);
 		}
 
+		setTimeUnit(AVTimeUnit.MILLISECONDS);
+	}
+
+	public void setTimeUnit(AVTimeUnit unit) {
+		super.setTimeUnit(unit);
+		if (null != dePacketizer) {
+			dePacketizer.setTimeUnit(unit);
+		}
+	}
+
+	public void setStreamIndex(int streamIndex) {
+		this.streamIndex = streamIndex;
+	}
+
+	public int getStreamIndex() {
+		return streamIndex;
 	}
 
 	public int getPayloadType() {
@@ -116,7 +139,6 @@ public abstract class RtpReceiver extends AVStream {
 		return String.valueOf(md);
 	}
 
-
 	public MediaDescription getMediaDescription() {
 		return md;
 	}
@@ -124,36 +146,54 @@ public abstract class RtpReceiver extends AVStream {
 	public boolean connect(String id, RtpParticipant localParticipant,
 			RtpParticipant remoteParticipant,
 			final AVStreamDispatcher dispatcher) {
-		session = new SingleParticipantSession(id, payloadType,
-				localParticipant, remoteParticipant);
+		if (null != remoteParticipant) {
+			session = new SingleParticipantSession(id, payloadType,
+					localParticipant, remoteParticipant);
+		} else {
+			session = new DefaultRtpSession(id, payloadType, localParticipant);
+		}
 
 		final List<AVPacket> out = new ArrayList<AVPacket>(4);
 		final JitterBuffer buffer = new JitterBuffer(isVideo() ? 64 : 4);
 
-		session.addDataListener(new RtpSessionDataListener() {
+		if (null != dePacketizer) {
+			session.addDataListener(new RtpSessionDataListener() {
 
-			@Override
-			public void dataPacketReceived(RtpSession session,
-					RtpParticipantInfo participant, DataPacket packet) {
-				DataPacket last = buffer.add(packet);
-				
-				if (null != last) {
-					dePacketizer.process(last, out);
-					
-					while(!out.isEmpty()) {
-						AVPacket pkt = out.remove(0);
-						syncTimestamp(pkt);
-						dispatcher.firePacket(RtpReceiver.this, pkt);
+				@Override
+				public void dataPacketReceived(RtpSession session,
+						RtpParticipantInfo participant, DataPacket packet) {
+					DataPacket last = buffer.add(packet);
+
+					if (null != last) {
+						// check rtp lost?
+						if (lastNumSeq + 1 != last.getSequenceNumber()) {
+							logger.info("last data packet, except {} but {}", lastNumSeq + 1, last.getSequenceNumber());
+						}
+						lastNumSeq = last.getSequenceNumber();
+
+						dePacketizer.process(last, out);
+
+						while (!out.isEmpty()) {
+							AVPacket pkt = out.remove(0);
+
+							pkt.setStreamIndex(streamIndex);
+							syncTimestamp(pkt);
+							dispatcher.firePacket(RtpReceiver.this, pkt);
+						}
 					}
 				}
-			}
-		});
-		
+			});
+		}
+
 		return session.init();
 	}
 
 	public RtpSession getSession() {
 		return session;
+	}
+
+	public AVStreamExtra getExtra() {
+		return null;
 	}
 
 }

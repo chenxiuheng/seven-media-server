@@ -7,7 +7,6 @@ import javax.media.Format;
 import javax.media.format.AudioFormat;
 import javax.media.format.VideoFormat;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,8 +14,10 @@ import org.slf4j.LoggerFactory;
 public abstract class AVStream {
 	private static final Logger logger = LoggerFactory.getLogger(AVStream.class);
 	
-	public static final long UNKNOWN = -1;
+	public static final int UNKNOWN = -1;
 	private Format format;
+	private int frameRate = UNKNOWN;
+	private AVTimeUnit timeUnit = AVTimeUnit.MILLISECONDS;
 	abstract public AVStreamExtra getExtra();
 
 	/* used for PTS sync */
@@ -28,11 +29,17 @@ public abstract class AVStream {
 	 */
 	protected AtomicLong sysClock;
 	
+
+	/**
+	 * the PTS of last packet
+	 */
+	protected long lastClock;
+	
 	/***
 	 * the increment of last two packets
 	 */
 	protected long diff;
-
+	
 	/***
 	 * the PTS of last packet.
 	 *    normal, next pts should be lastClock + diff
@@ -42,39 +49,39 @@ public abstract class AVStream {
 	protected AVStream(AtomicLong sysClock, Format format) {
 		this.sysClock = sysClock;
 		this.format = format;
+		this.lastClock = sysClock.get();
 	}
 
 	public void syncTimestamp(AVPacket packet) {
-		final long lastPts = this.lastPts;
+		final long lastClock = this.lastClock;
 		final long lastDiff = this.diff;
 		long pts = packet.getTimeStamp(AVTimeUnit.MILLISECONDS);
 		long duration = packet.getDuration(AVTimeUnit.MILLISECONDS);
 		
-		if (lastPts != UNKNOWN) {
-			long diff = pts - lastPts;
+		if (this.lastPts != UNKNOWN) {
+			long diff = pts - this.lastPts;
 			if (diff < 0 || diff > 700) {
 				diff = lastDiff;
 			} 
 
-			long pktPts = lastPts + diff;
-			if (Math.abs(sysClock.get() - pktPts) < 700) {
-				sysClock.set(Math.max(sysClock.get(), pktPts));
+			if (Math.abs(sysClock.get() - (lastClock + diff)) < 700) {
+				sysClock.set(Math.max(sysClock.get(), lastClock + diff));
+				
+				packet.setTimeStamp(lastClock + diff, AVTimeUnit.MILLISECONDS);
+				this.diff = diff;
 			} else {
-				pktPts = sysClock.get();
-				diff = getDefaultTimestampDifferent(duration);
+				packet.setTimeStamp(sysClock.get(), AVTimeUnit.MILLISECONDS);
 			}
-
-			packet.setTimeStamp(pktPts, AVTimeUnit.MILLISECONDS);
-			this.lastPts = pktPts;
-			this.diff = diff;
 		} else {
 			packet.setTimeStamp(sysClock.get(), AVTimeUnit.MILLISECONDS);
-			this.lastPts = sysClock.get();
 			this.diff = getDefaultTimestampDifferent(duration);
 		}
 		
+		this.lastPts = pts;
+		this.lastClock = packet.getTimeStamp(AVTimeUnit.MILLISECONDS);
+		
 		if (logger.isDebugEnabled()) {
-			logger.debug("set pts = {}, diff = {}", DateFormatUtils.formatUTC(this.lastPts, "HH:mm:ss.SSS"), diff);
+			logger.debug("set diff = {}, {}", diff, packet);
 		}
 	}
 
@@ -107,9 +114,13 @@ public abstract class AVStream {
 	}
 
 	public int getFrameRate() {
-		return 25;
+		return frameRate;
 	}
 
+	public void setFrameRate(int frameRate) {
+		this.frameRate = frameRate;
+	}
+	
 	public boolean isAudio() {
 		return format instanceof AudioFormat;
 	}
@@ -140,5 +151,13 @@ public abstract class AVStream {
 	
 	public Format getFormat() {
 		return format;
+	}
+	
+	public AVTimeUnit getTimeUnit() {
+		return timeUnit;
+	}
+	
+	public void setTimeUnit(AVTimeUnit timeUnit) {
+		this.timeUnit = timeUnit;
 	}
 }

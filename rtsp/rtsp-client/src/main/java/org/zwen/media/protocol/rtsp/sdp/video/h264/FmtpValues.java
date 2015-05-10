@@ -144,11 +144,4 @@ public class FmtpValues implements SDPFieldValues {
 		}
 		return buf.toString();
 	}
-	
-	public static void main(String[] args) {
-		String fmpt = "fmtp:96 packetization-mode=1;profile-level-id=4D001F;sprop-parameter-sets=Z00AH9oBQBbpUgAAAwACAAADAGTAgAC7fgAD9H973wvCIRqA,aM48gA==";
-		
-		FmtpValues configs = FmtpValues.parse(fmpt);
-		System.out.println(configs);
-	}
 }

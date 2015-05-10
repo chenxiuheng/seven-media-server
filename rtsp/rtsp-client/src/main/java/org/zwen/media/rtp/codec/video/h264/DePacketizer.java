@@ -1,7 +1,6 @@
 package org.zwen.media.rtp.codec.video.h264;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import javax.media.Buffer;
 import javax.media.format.VideoFormat;
@@ -22,6 +21,7 @@ import com.biasedbit.efflux.packet.DataPacket;
 public class DePacketizer implements IDePacketizer {
 	public final static byte sync_bytes[] = { 0, 0, 0, 1 };
 	
+	private AVTimeUnit timeUnit = AVTimeUnit.MILLISECONDS_90;
 	private int nalType;
 	private long timestamp;
 	private ChannelBuffer frame = ChannelBuffers.buffer(256 * 1024);
@@ -151,17 +151,25 @@ public class DePacketizer implements IDePacketizer {
 			frame.readBytes(data);
 			frame.clear();
 			
-			AVPacket buf = new AVPacket(AVTimeUnit.MILLISECONDS_90);
+			AVPacket buf = new AVPacket();
 			buf.setDiscard(discard);
 			buf.setData(data);
-			buf.setDuration(40);
 			buf.setFormat(new VideoFormat(Constants.H264_RTP));
 			buf.setTimeStamp(timestamp);
+			buf.setTimeUnit(getTimeUnit());
 			if (nalType == 5) {
 				buf.setFlags(Buffer.FLAG_KEY_FRAME);
 			}
+			
 			out.add(buf);
 		}
+	}
+	
+	public void setTimeUnit(AVTimeUnit timeUnit) {
+		this.timeUnit = timeUnit;
+	}
+	public AVTimeUnit getTimeUnit() {
+		return timeUnit;
 	}
 
 }

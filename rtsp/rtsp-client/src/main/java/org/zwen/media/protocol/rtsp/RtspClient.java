@@ -18,6 +18,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.media.format.AudioFormat;
+import javax.media.format.VideoFormat;
 import javax.sdp.MediaDescription;
 import javax.sdp.SdpException;
 import javax.sdp.SdpParseException;
@@ -38,6 +40,8 @@ import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVStreamDispatcher;
+import org.zwen.media.AVTimeUnit;
+import org.zwen.media.URLUtils;
 import org.zwen.media.protocol.rtsp.sdp.video.h264.H264Receiver;
 
 import com.biasedbit.efflux.participant.RtpParticipant;
@@ -54,7 +58,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 	private RtspClientStack stack;
 
 	private RtpReceiver[] avstreams = AVSTREMS_EMPTY;
-	
+
 	public RtspClient(String url, String user, String pass) {
 		this.url = url;
 		this.user = user;
@@ -75,9 +79,9 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		stack = new RtspClientStack(host, port);
 	}
 
-	public void connect() throws SdpException, ConnectException {
+	public void connect() throws ConnectException {
 		stack.connect();
-		
+
 		HttpResponse resp = null;
 
 		resp = option(null, null);
@@ -86,56 +90,11 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		}
 
 		if (resp.getStatus().getCode() != 200) {
-			throw new ConnectException("Fail connect [" + url + "],  " + resp.getStatus());
+			throw new ConnectException("Fail connect [" + url + "],  "
+					+ resp.getStatus());
 		}
 	}
-	
-	@SuppressWarnings("unchecked")
-	public void start() throws NoPortAvailableException, SdpException {
-		// describe
-		SessionDescription sessionDescription = describe();
-		Vector<MediaDescription> mediaDescriptions = sessionDescription.getMediaDescriptions(false);
-		assertNotNull(mediaDescriptions);
 
-		AtomicLong syncClock = new AtomicLong(700);
-		List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
-		Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions.iterator();
-		while(iter.hasNext()) {
-			MediaDescription ms = iter.next();
-			
-			Vector  formats = ms.getMedia().getMediaFormats(false);
-			if (null == formats) {
-				continue;
-			}
-			if (formats.contains("96")) {
-				streams.add(new H264Receiver(syncClock, ms));
-			} else {
-				logger.error("unsupported[{}]", ms.getMedia());
-			}
-		}
-		this.avstreams = streams.toArray(AVSTREMS_EMPTY);
-		
-		
-		// setup
-		for (int i = 0; i < avstreams.length; i++) {
-			RtpReceiver stream = avstreams[i];
-			boolean connect = connect(stream);
-			if (!connect) {
-				logger.warn("{} Connect Fail", stream);
-			}
-		}
-
-		fireSetup(avstreams);
-
-		// play
-		play();
-	}
-	
-	private void assertNotNull(List<MediaDescription> mediaDescriptions) {
-		if (null == mediaDescriptions) {
-			throw new ChannelException("MediaDescription Not Found");
-		}
-	}
 
 	private HttpResponse option(String user, String pass) {
 		DefaultHttpRequest request = makeRequest(RtspMethods.OPTIONS);
@@ -177,16 +136,112 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		return sd;
 	}
 
-	private boolean connect(RtpReceiver stream)
+	@SuppressWarnings("unchecked")
+	public void start() throws IOException {
+		try {
+			// describe
+			SessionDescription sessionDescription = describe();
+			Vector<MediaDescription> mediaDescriptions = sessionDescription
+					.getMediaDescriptions(false);
+			assertNotNull(mediaDescriptions);
+
+			AtomicLong syncClock = new AtomicLong(700);
+			List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
+			Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions
+					.iterator();
+			while (iter.hasNext()) {
+				MediaDescription ms = iter.next();
+
+				String proto = ms.getMedia().getProtocol();
+				String mediaType = ms.getMedia().getMediaType();
+				
+				boolean isUdp = "RTP/AVP".equalsIgnoreCase(proto) || "RTP/AVP/UDP".equalsIgnoreCase(proto);
+				if (!isUdp) {
+					throw new UnsupportedOperationException("unsupported proto [" + proto + "]");
+				}
+				Vector formats = ms.getMedia().getMediaFormats(false);
+				if (null == formats) {
+					continue;
+				}
+
+				RtpReceiver stream = null;
+				for (Object item : formats) {
+					stream = null;
+					String format = (String)item;
+					String rtpmap = ms.getAttribute("rtpmap");
+					String fmtp = ms.getAttribute("fmtp");
+					
+					if (null == rtpmap || !rtpmap.startsWith(format)) {
+						logger.warn("rtpmap is NULL for {}", ms.getMedia());
+						continue;
+					}
+					
+					Matcher rtpMapParams = Pattern.compile(
+							"(\\d+) ([^/]+)(/(\\d+)(/([^/]+))?)?(.*)?")
+							.matcher(rtpmap);
+					if (!rtpMapParams.matches()) {
+						logger.warn("{} is NOT legal rtpmap", rtpmap);
+						continue;
+					}
+					
+					String encoding = rtpMapParams.group(2);
+					String clockRate = rtpMapParams.group(4);
+					if ("H264".equals(encoding)) {
+						stream = new H264Receiver(syncClock, ms);
+					} else if ("audio".equalsIgnoreCase(mediaType)){
+						stream = new RtpReceiver(syncClock,new AudioFormat(encoding), ms, null);
+					} else if ("video".equalsIgnoreCase(mediaType)) {
+						stream = new RtpReceiver(syncClock,new VideoFormat(encoding), ms, null);
+					}
+
+					if (null != stream && null != clockRate) {
+						AVTimeUnit unit = new AVTimeUnit(1, Integer.valueOf(clockRate));
+						stream.setTimeUnit(unit);
+					}
+				}
+
+				if (null == stream) {
+					logger.error("unsupported[{}]", ms.getMedia());
+				} else  {
+					stream.setStreamIndex(streams.size());
+					streams.add(stream);
+				}
+			}
+			this.avstreams = streams.toArray(AVSTREMS_EMPTY);
+
+			// setup
+			for (int i = 0; i < avstreams.length; i++) {
+				RtpReceiver stream = avstreams[i];
+				boolean connect = setup(stream);
+				if (!connect) {
+					logger.warn("{} Connect Fail", stream);
+				}
+			}
+			fireSetup(avstreams);
+
+			// play
+			play();
+		} catch (SdpException e) {
+			throw new IOException(e.getMessage(), e);
+		} catch (NoPortAvailableException e) {
+			throw new ConnectException(e.getClass().getSimpleName());
+		}
+	}
+
+	private void assertNotNull(List<MediaDescription> mediaDescriptions) {
+		if (null == mediaDescriptions) {
+			throw new ChannelException("MediaDescription Not Found");
+		}
+	}
+	
+	private boolean setup(RtpReceiver stream)
 			throws NoPortAvailableException, SdpParseException {
 		MediaDescription md = stream.getMediaDescription();
-		
+
 		String url;
-		if (this.url.endsWith("/")) {
-			url = this.url + md.getAttribute("control");
-		} else {
-			url = this.url + "/" + md.getAttribute("control");
-		}
+		String control = md.getAttribute("control");
+		url = URLUtils.concat(this.url, control);
+
 		DefaultHttpRequest request = new DefaultHttpRequest(
 				RtspVersions.RTSP_1_0, RtspMethods.SETUP, url);
 
@@ -201,49 +256,46 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		HttpResponse resp = stack.send(request).get();
 		HttpHeaders headers = resp.headers();
 
-		String transport = headers.get(RtspHeaders.Names.TRANSPORT);
-		if (null == transport) {
-			throw new IllegalArgumentException("Error Transport");
-		}
+		RtpParticipant localParticipant = null;
+		RtpParticipant remoteParticipant = null;
 
-		String[] attr = StringUtil.split(transport, ';');
-		String[] clientPorts = null;
-		String[] serverPorts = null;
-		String ssrc = null;
-		for (int i = 0; i < attr.length; i++) {
-			if (attr[i].startsWith(RtspHeaders.Values.CLIENT_PORT)) {
-				clientPorts = attr[i].substring(
-						RtspHeaders.Values.CLIENT_PORT.length() + 1).split("-");
-			} else if (attr[i].startsWith(RtspHeaders.Values.SERVER_PORT)) {
-				serverPorts = attr[i].substring(
-						RtspHeaders.Values.SERVER_PORT.length() + 1).split("-");
-			} else if (attr[i].startsWith(RtspHeaders.Values.SSRC)) {
-				ssrc = attr[i].substring(RtspHeaders.Values.SERVER_PORT
-						.length() + 1);
+		// receiver
+		String recvHost = "0.0.0.0";
+		Integer recvRTPPort = Integer.valueOf(ports[0]);
+		Integer recvRTCPPort = Integer.valueOf(ports[1]);
+		localParticipant = RtpParticipant.createReceiver(recvHost, recvRTPPort,
+				recvRTCPPort);
+
+		String transport = headers.get(RtspHeaders.Names.TRANSPORT);
+		if (null != transport) {
+			String[] attr = StringUtil.split(transport, ';');
+			String[] serverPorts = null;
+			String ssrc = null;
+			for (int i = 0; i < attr.length; i++) {
+				if (attr[i].startsWith(RtspHeaders.Values.SERVER_PORT)) {
+					serverPorts = attr[i].substring(
+							RtspHeaders.Values.SERVER_PORT.length() + 1).split(
+							"-");
+				} else if (attr[i].startsWith(RtspHeaders.Values.SSRC)) {
+					ssrc = attr[i].substring(RtspHeaders.Values.SERVER_PORT
+							.length() + 1);
+				}
+			}
+
+			// sender
+			String sndHost = stack.getHost();
+			Integer sndRTPPort = Integer.valueOf(serverPorts[0]);
+			Integer sndRTCPPort = Integer.valueOf(serverPorts[1]);
+			remoteParticipant = RtpParticipant.createReceiver(sndHost,
+					sndRTPPort, sndRTCPPort);
+
+			if (null != ssrc) {
+				localParticipant.getInfo().setSsrc(Integer.valueOf(ssrc, 16));
 			}
 		}
 
-		int payloadType = stream.getPayloadType();
-		
-		// receiver
-		String recvHost = "0.0.0.0";
-		Integer recvRTPPort = Integer.valueOf(clientPorts[0]);
-		Integer recvRTCPPort = Integer.valueOf(clientPorts[1]);
-		RtpParticipant localParticipant = RtpParticipant.createReceiver(
-				recvHost, recvRTPPort, recvRTCPPort);
-
-		// sender
-		String sndHost = stack.getHost();
-		Integer sndRTPPort = Integer.valueOf(serverPorts[0]);
-		Integer sndRTCPPort = Integer.valueOf(serverPorts[1]);
-		RtpParticipant remoteParticipant = RtpParticipant.createReceiver(
-				sndHost, sndRTPPort, sndRTCPPort);
-
-		if (null != ssrc) {
-			localParticipant.getInfo().setSsrc(Integer.valueOf(ssrc, 16));
-		}
-
-		return stream.connect(stack.getSessionId(), localParticipant, remoteParticipant, this);
+		return stream.connect(stack.getSessionId(), localParticipant,
+				remoteParticipant, this);
 	}
 
 	private int getPayloadType(MediaDescription md) {
@@ -282,7 +334,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 		String authValue = "Basic " + new String(auth);
 		return authValue;
 	}
-	
+
 	@Override
 	public void close() throws IOException {
 		try {
@@ -302,8 +354,8 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 				}
 			}
 		}
-		
+
 		fireClosed();
 	}
-	
+
 }

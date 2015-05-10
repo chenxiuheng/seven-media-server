@@ -3,11 +3,9 @@ package org.zwen.media.rtp;
 import java.util.Comparator;
 import java.util.TreeSet;
 
-import javax.media.Buffer;
+import net.sf.fmj.media.rtp.RTPSourceStream;
 
 import com.biasedbit.efflux.packet.DataPacket;
-
-import net.sf.fmj.media.rtp.RTPSourceStream;
 
 /**
  * Implements an RTP packet queue and the storage-related functionality of a

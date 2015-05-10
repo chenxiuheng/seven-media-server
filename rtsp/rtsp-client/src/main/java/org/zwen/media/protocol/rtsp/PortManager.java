@@ -35,7 +35,7 @@ public class PortManager
 
 	private static Logger log = Logger.getLogger( PortManager.class );
 
-	protected static final int minUdpPort = 6790;
+	protected static final int minUdpPort = 6791;
 	protected static final int maxUdpPort = 49151;
 	protected static final AtomicInteger PORT_START = new AtomicInteger(minUdpPort);
 	private static Set<Integer> reservedPorts = Collections.synchronizedSet( new HashSet<Integer>() );

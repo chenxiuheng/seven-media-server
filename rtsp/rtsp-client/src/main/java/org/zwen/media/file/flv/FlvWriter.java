@@ -172,7 +172,6 @@ public class FlvWriter implements Closeable {
 			logger.warn("Cant Find Start Code, {}", frame);
 			return;
 		}
-
 		
 		int tagSize = avc.readableBytes();
 		int dataSize = tagSize - 11;

@@ -1,8 +1,6 @@
 package org.zwen.media;
 
-
 import java.nio.ByteBuffer;
-import java.util.concurrent.TimeUnit;
 
 import javax.media.Buffer;
 import javax.media.Format;
@@ -10,16 +8,24 @@ import javax.media.Format;
 import org.apache.commons.lang3.time.DateFormatUtils;
 
 public class AVPacket {
+	private int streamIndex;
 	private Buffer buffer;
-	private AVTimeUnit timeunit;
+	private AVTimeUnit timeUnit;
 
-	public AVPacket(AVTimeUnit unit) {
+	public AVPacket() {
 		this(new Buffer());
-		this.timeunit = unit;
 	}
 
 	public AVPacket(Buffer buf) {
 		this.buffer = buf;
+	}
+
+	public void setTimeUnit(AVTimeUnit timeUnit) {
+		this.timeUnit = timeUnit;
+	}
+
+	public AVTimeUnit getTimeUnit() {
+		return timeUnit;
 	}
 
 	public Format getFormat() {
@@ -37,7 +43,7 @@ public class AVPacket {
 	public void setDiscard(boolean discard) {
 		buffer.setDiscard(discard);
 	}
-	
+
 	public boolean isDiscard() {
 		return buffer.isDiscard();
 	}
@@ -72,11 +78,10 @@ public class AVPacket {
 	public void setTimeStamp(long timestamp) {
 		buffer.setTimeStamp(timestamp);
 	}
-	
-	public void setTimeStamp(long timestamp, AVTimeUnit unit) {
-		buffer.setTimeStamp(timeunit.convert(timestamp, unit));
-	}
 
+	public void setTimeStamp(long timestamp, AVTimeUnit unit) {
+		buffer.setTimeStamp(timeUnit.convert(timestamp, unit));
+	}
 
 	public void setDuration(long duration) {
 		buffer.setDuration(duration);
@@ -97,9 +102,9 @@ public class AVPacket {
 	public long getTimeStamp() {
 		return buffer.getTimeStamp();
 	}
-	
+
 	public long getTimeStamp(AVTimeUnit unit) {
-		return unit.convert(getTimeStamp(), this.timeunit);
+		return unit.convert(getTimeStamp(), this.timeUnit);
 	}
 
 	public int getLength() {
@@ -111,17 +116,23 @@ public class AVPacket {
 	}
 
 	public long getDuration(AVTimeUnit unit) {
-		return unit.convert(buffer.getDuration(), this.timeunit);
+		return unit.convert(buffer.getDuration(), this.timeUnit);
 	}
-	
-	public AVTimeUnit getTimeunit() {
-		return timeunit;
+
+	public int getStreamIndex() {
+		return streamIndex;
+	}
+
+	public void setStreamIndex(int streamIndex) {
+		this.streamIndex = streamIndex;
 	}
 
 	@Override
 	public String toString() {
-		StringBuilder buf = new StringBuilder("AVPacket ");
-		
+		StringBuilder buf = new StringBuilder("AVPacket#");
+		buf.append(streamIndex);
+		buf.append(" ");
+
 		if (null != getFormat()) {
 			buf.append(getFormat().getEncoding());
 		} else {
@@ -129,14 +140,20 @@ public class AVPacket {
 		}
 
 		buf.append(", ");
-		buf.append("key=").append(isKeyFrame()?"true ":"false");
+		buf.append("key=").append(isKeyFrame() ? "true " : "false");
 
-		long ts = getTimeStamp(AVTimeUnit.MILLISECONDS);
-		buf.append(", t=").append(DateFormatUtils.formatUTC(ts, "HH:mm:ss.SSS"));
+
 		
-		
+		if (null != getTimeUnit()) {
+			long ts = getTimeStamp(AVTimeUnit.MILLISECONDS);
+			buf.append(", pts=").append(
+					DateFormatUtils.formatUTC(ts, "HH:mm:ss.SSS"));
+		} 
+
 		buf.append(", ");
 		buf.append("size=").append(getLength());
+
+		buf.append(", t=").append(getTimeStamp());
 		
 		if (isDiscard()) {
 			buf.append(" ");

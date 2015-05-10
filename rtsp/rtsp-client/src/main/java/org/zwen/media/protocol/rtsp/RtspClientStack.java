@@ -14,6 +14,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
@@ -70,7 +72,7 @@ public class RtspClientStack implements Closeable {
 		channel.write(request);
 
 		if (logger.isInfoEnabled()) {
-			logger.info(request.getMethod() + " {}\r\n{}\r\n",
+			logger.info(request.getMethod() + " \r\n{}\r\n{}\r\n",
 					request.getUri(), toString(headers));
 		}
 
@@ -87,12 +89,19 @@ public class RtspClientStack implements Closeable {
 				content = new String(bytes);
 			}
 
-			logger.info("{}\r\n{}", toString(headers), content);
+			logger.info(response.getStatus() + "\r\n{}\r\n{}", toString(headers), content);
 		}
 
+		/***
+		 * Session=e11323e9ea489ab1
+		 * Session=e11323e9ea489ab1;timeout=60
+		 */
 		String sessionId = response.headers().get(RtspHeaders.Names.SESSION);
 		if (null != sessionId) {
-			this.sessionId = sessionId;
+			Matcher matcher = Pattern.compile("([^;]+)(;.*)?").matcher(sessionId);
+			if (matcher.matches()) {
+				this.sessionId = matcher.group(1);
+			}
 		}
 
 		String seqNo = response.headers().get(RtspHeaders.Names.CSEQ);

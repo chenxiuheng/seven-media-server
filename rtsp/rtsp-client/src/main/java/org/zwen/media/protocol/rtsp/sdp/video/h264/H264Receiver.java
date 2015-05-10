@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.media.format.VideoFormat;
 import javax.sdp.MediaDescription;
+import javax.sdp.SdpParseException;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
@@ -24,6 +25,13 @@ public class H264Receiver extends RtpReceiver {
 	
 	public H264Receiver(AtomicLong sysClock, MediaDescription md) {
 		super(sysClock, new VideoFormat(Constants.H264_RTP), md, new DePacketizer());
+		
+		try {
+			String framerate = md.getAttribute("framerate");
+			setFrameRate(Double.valueOf(framerate).intValue());
+		} catch (Exception e) {
+			logger.info("framerate UNKNOWN");
+		}
 	}
 
 
@@ -37,7 +45,9 @@ public class H264Receiver extends RtpReceiver {
 		}
 		String profile = fmtp.getValue("profile-level-id");
 		try {
-			extra.setProfile(Hex.decodeHex(profile.toCharArray()));
+			if (null != profile) {
+				extra.setProfile(Hex.decodeHex(profile.toCharArray()));
+			}
 		} catch (DecoderException e) {
 			logger.error("fail to decode {}", profile);
 		}
