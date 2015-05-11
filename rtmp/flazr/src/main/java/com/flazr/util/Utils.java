@@ -30,11 +30,6 @@ import java.net.Socket;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 public class Utils {
@@ -176,6 +171,7 @@ public class Utils {
         }
     }
 
+    /**
     public static String getOverHttp(String url) {
     	HttpClient client = new DefaultHttpClient();
 		HttpGet method = new HttpGet(url);
@@ -188,6 +184,7 @@ public class Utils {
 		}
 		return result;
     }
+    */
 
     public static byte[] sha256(final byte[] message, final byte[] key) {
         final Mac mac;
