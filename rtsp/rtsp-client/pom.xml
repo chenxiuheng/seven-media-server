@@ -12,13 +12,13 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.zwen.media.server</groupId>
+			<groupId>org.zwen.media</groupId>
 			<artifactId>efflux</artifactId>
 			<version>0.4.0</version>
 		</dependency>
 
 		<dependency>
-			<groupId>org.zwen.media.server</groupId>
+			<groupId>org.zwen.media</groupId>
 			<artifactId>flazr</artifactId>
 			<version>0.7</version>
 		</dependency>
