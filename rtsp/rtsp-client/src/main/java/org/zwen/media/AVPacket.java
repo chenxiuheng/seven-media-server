@@ -5,11 +5,13 @@ import java.nio.ByteBuffer;
 import javax.media.Buffer;
 import javax.media.Format;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
+import org.apache.commons.lang.time.DateFormatUtils;
 
 public class AVPacket {
 	private int streamIndex;
+	private long position;
 	private Buffer buffer;
+	private long compositionTime = AVStream.UNKNOWN;
 	private AVTimeUnit timeUnit;
 
 	public AVPacket() {
@@ -20,6 +22,10 @@ public class AVPacket {
 		this.buffer = buf;
 	}
 
+	public void setCompositionTime(long compositionTime) {
+		this.compositionTime = compositionTime;
+	}
+	
 	public void setTimeUnit(AVTimeUnit timeUnit) {
 		this.timeUnit = timeUnit;
 	}
@@ -39,6 +45,14 @@ public class AVPacket {
 	public boolean isKeyFrame() {
 		return (buffer.getFlags() & Buffer.FLAG_KEY_FRAME) > 0;
 	}
+	
+	public void setKeyFrame(boolean isKey) {
+		if (isKey) {
+			buffer.setFlags(buffer.getFlags() | Buffer.FLAG_KEY_FRAME);
+		} else {
+			buffer.setFlags(buffer.getFlags() & ~Buffer.FLAG_KEY_FRAME);
+		}
+	}
 
 	public void setDiscard(boolean discard) {
 		buffer.setDiscard(discard);
@@ -48,38 +62,33 @@ public class AVPacket {
 		return buffer.isDiscard();
 	}
 
-	public void setData(byte[] data) {
-		setData(data, 0, data.length);
-	}
-
 	public ByteBuffer getData() {
 		if (null == buffer.getData()) {
 			return null;
 		}
 
-		byte[] data = (byte[]) buffer.getData();
-		return ByteBuffer.wrap(data, getOffset(), getLength());
+		ByteBuffer data = (ByteBuffer) buffer.getData();
+		return data;
+	}
+
+	public void setData(ByteBuffer data) {
+		this.buffer.setData(data);
+		this.buffer.setLength(data.limit() - data.position());
+	}
+	
+	public void setData(byte[] data) {
+		setData(data, 0, data.length);
 	}
 
 	public void setData(byte[] data, int offset, int length) {
-		buffer.setData(data);
-		buffer.setOffset(offset);
-		buffer.setLength(length);
+		setData(ByteBuffer.wrap(data, offset, length));
 	}
 
-	public void setOffset(int offset) {
-		buffer.setOffset(offset);
-	}
-
-	public void setLength(int length) {
-		buffer.setLength(length);
-	}
-
-	public void setTimeStamp(long timestamp) {
+	public void setPts(long timestamp) {
 		buffer.setTimeStamp(timestamp);
 	}
 
-	public void setTimeStamp(long timestamp, AVTimeUnit unit) {
+	public void setPts(long timestamp, AVTimeUnit unit) {
 		buffer.setTimeStamp(timeUnit.convert(timestamp, unit));
 	}
 
@@ -99,12 +108,20 @@ public class AVPacket {
 		return buffer.getFlags();
 	}
 
-	public long getTimeStamp() {
+	public long getPts() {
 		return buffer.getTimeStamp();
 	}
+	
+	public long getDts() {
+		return compositionTime < 0 ? getPts() : getPts() + compositionTime;
+	}
+	
+	public long getDts(AVTimeUnit unit) {
+		return unit.convert(getDts(), this.timeUnit);
+	}
 
-	public long getTimeStamp(AVTimeUnit unit) {
-		return unit.convert(getTimeStamp(), this.timeUnit);
+	public long getPts(AVTimeUnit unit) {
+		return unit.convert(getPts(), this.timeUnit);
 	}
 
 	public int getLength() {
@@ -127,33 +144,47 @@ public class AVPacket {
 		this.streamIndex = streamIndex;
 	}
 
+	public void setPosition(long packetIndex) {
+		this.position = packetIndex;
+	}
+	
+	public long getPosition() {
+		return position;
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder buf = new StringBuilder("AVPacket#");
 		buf.append(streamIndex);
 		buf.append(" ");
+		
+
 
 		if (null != getFormat()) {
 			buf.append(getFormat().getEncoding());
 		} else {
 			buf.append("UNKNOWN");
 		}
-
+		
 		buf.append(", ");
 		buf.append("key=").append(isKeyFrame() ? "true " : "false");
 
 
 		
 		if (null != getTimeUnit()) {
-			long ts = getTimeStamp(AVTimeUnit.MILLISECONDS);
+			long ts = getPts(AVTimeUnit.MILLISECONDS);
 			buf.append(", pts=").append(
 					DateFormatUtils.formatUTC(ts, "HH:mm:ss.SSS"));
 		} 
 
+		
 		buf.append(", ");
 		buf.append("size=").append(getLength());
 
-		buf.append(", t=").append(getTimeStamp());
+		buf.append(", ");
+		buf.append("pos=").append(position);
+		
+		buf.append(", t=").append(getPts());
 		
 		if (isDiscard()) {
 			buf.append(" ");

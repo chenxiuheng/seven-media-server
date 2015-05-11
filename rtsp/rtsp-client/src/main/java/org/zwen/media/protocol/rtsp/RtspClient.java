@@ -25,7 +25,7 @@ import javax.sdp.SdpParseException;
 import javax.sdp.SessionDescription;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
@@ -125,6 +125,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 
 			// setup streams
 			AtomicLong syncClock = new AtomicLong(300);
+			AtomicLong pktCounter = new AtomicLong();
 			List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
 			Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions
 					.iterator();
@@ -139,7 +140,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 				}
 				
 				RtpReceiver stream = null;
-				stream = new RtpReceiver(syncClock);
+				stream = new RtpReceiver(syncClock, pktCounter);
 				boolean success = stream.setMediaDescription(md);
 				if (success) {
 					stream.setStreamIndex(streams.size());

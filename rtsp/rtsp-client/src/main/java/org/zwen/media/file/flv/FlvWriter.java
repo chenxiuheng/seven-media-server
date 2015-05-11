@@ -151,7 +151,7 @@ public class FlvWriter implements Closeable {
 		avc.writeMedium(0); // tag data size
 		
 		// timestamp
-		long timestamp = frame.getTimeStamp(AVTimeUnit.MILLISECONDS);
+		long timestamp = frame.getPts(AVTimeUnit.MILLISECONDS);
 		avc.writeMedium((int)(0xFFFFFF & timestamp));
 		avc.writeByte((int)(0xFF & (timestamp >> 24)));
 

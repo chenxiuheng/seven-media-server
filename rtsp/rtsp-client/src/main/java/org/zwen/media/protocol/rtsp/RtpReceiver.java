@@ -33,14 +33,15 @@ public class RtpReceiver extends AVStream {
 	private static final Logger logger = LoggerFactory
 			.getLogger(RtpReceiver.class);
 	private int payloadType;
-	private int streamIndex;
-
+	
 	private RtpSession session;
 	private IDePacketizer dePacketizer;
 	private long lastNumSeq = 0;
+	private AtomicLong pktCounter;
 
-	public RtpReceiver(AtomicLong sysClock) {
+	public RtpReceiver(AtomicLong sysClock, AtomicLong pktCounter) {
 		super(sysClock);
+		this.pktCounter = pktCounter;
 	}
 
 	public boolean setMediaDescription(MediaDescription md) throws SdpException {
@@ -99,10 +100,6 @@ public class RtpReceiver extends AVStream {
 		this.streamIndex = streamIndex;
 	}
 
-	public int getStreamIndex() {
-		return streamIndex;
-	}
-
 	public int getPayloadType() {
 		return payloadType;
 	}
@@ -140,7 +137,8 @@ public class RtpReceiver extends AVStream {
 
 						while (!out.isEmpty()) {
 							AVPacket pkt = out.remove(0);
-
+							
+							pkt.setPosition(pktCounter.getAndIncrement());
 							pkt.setStreamIndex(streamIndex);
 							syncTimestamp(pkt);
 							dispatcher.firePacket(RtpReceiver.this, pkt);

@@ -25,10 +25,10 @@ public class URLUtils {
 				
 				return matcher.group(1) + path;
 			} else {
-				Pattern pattern = Pattern.compile("^[a-z]+://(.*)/([^/]*)$");
+				Pattern pattern = Pattern.compile("^([a-z]+://.*)/([^/]*)$");
 				Matcher matcher = pattern.matcher(base);
 				if (matcher.matches()) {
-					return matcher.group(1) + path;
+					return matcher.group(1) + "/" + path;
 				} else {
 					return base + "/" + path;
 				}

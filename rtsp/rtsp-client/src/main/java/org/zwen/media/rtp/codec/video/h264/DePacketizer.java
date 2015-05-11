@@ -214,7 +214,7 @@ public class DePacketizer implements IDePacketizer {
 			buf.setDiscard(discard);
 			buf.setData(data);
 			buf.setFormat(new VideoFormat(Constants.H264_RTP));
-			buf.setTimeStamp(timestamp);
+			buf.setPts(timestamp);
 			buf.setTimeUnit(timeUnit);
 			if (nalType == 5) {
 				buf.setFlags(Buffer.FLAG_KEY_FRAME);

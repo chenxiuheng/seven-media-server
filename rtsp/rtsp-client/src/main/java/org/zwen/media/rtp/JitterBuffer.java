@@ -3,7 +3,6 @@ package org.zwen.media.rtp;
 import java.util.Comparator;
 import java.util.TreeSet;
 
-import net.sf.fmj.media.rtp.RTPSourceStream;
 
 import com.biasedbit.efflux.packet.DataPacket;
 

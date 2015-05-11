@@ -18,6 +18,7 @@ public abstract class AVStream {
 	private Format format;
 	private int frameRate = UNKNOWN;
 	protected AVStreamExtra extra;
+	protected int streamIndex;
 	
 	final public AVStreamExtra getExtra(){
 		 return extra;
@@ -57,7 +58,7 @@ public abstract class AVStream {
 	public void syncTimestamp(AVPacket packet) {
 		final long lastClock = this.lastClock;
 		final long lastDiff = this.diff;
-		long pts = packet.getTimeStamp(AVTimeUnit.MILLISECONDS);
+		long pts = packet.getPts(AVTimeUnit.MILLISECONDS);
 		long duration = packet.getDuration(AVTimeUnit.MILLISECONDS);
 		
 		if (this.lastPts != UNKNOWN) {
@@ -69,18 +70,18 @@ public abstract class AVStream {
 			if (Math.abs(sysClock.get() - (lastClock + diff)) < 700) {
 				sysClock.set(Math.max(sysClock.get(), lastClock + diff));
 				
-				packet.setTimeStamp(lastClock + diff, AVTimeUnit.MILLISECONDS);
+				packet.setPts(lastClock + diff, AVTimeUnit.MILLISECONDS);
 				this.diff = diff;
 			} else {
-				packet.setTimeStamp(sysClock.get(), AVTimeUnit.MILLISECONDS);
+				packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS);
 			}
 		} else {
-			packet.setTimeStamp(sysClock.get(), AVTimeUnit.MILLISECONDS);
+			packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS);
 			this.diff = getDefaultTimestampDifferent(duration);
 		}
 		
 		this.lastPts = pts;
-		this.lastClock = packet.getTimeStamp(AVTimeUnit.MILLISECONDS);
+		this.lastClock = packet.getPts(AVTimeUnit.MILLISECONDS);
 		
 		if (logger.isDebugEnabled()) {
 			logger.debug("set diff = {}, {}", diff, packet);
@@ -119,6 +120,10 @@ public abstract class AVStream {
 		return 0;
 	}
 
+	public int getStreamIndex() {
+		return streamIndex;
+	}
+	
 	public int getFrameRate() {
 		return frameRate;
 	}
