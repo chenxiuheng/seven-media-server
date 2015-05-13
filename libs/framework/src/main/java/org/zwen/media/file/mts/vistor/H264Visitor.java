@@ -41,8 +41,6 @@ public class H264Visitor implements PESVistor {
 			ByteBuffer pps = null;
 			for (ByteBuffer nal : nals) {
 				NALUnit unit = NALUnit.read(nal.duplicate());
-				LOGGER.debug("NalType {}", unit.type);
-
 				switch (unit.type) {
 				case SPS:
 					sps = nal;

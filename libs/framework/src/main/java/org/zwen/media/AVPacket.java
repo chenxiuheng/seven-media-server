@@ -199,10 +199,6 @@ public class AVPacket {
 					DateFormatUtils.formatUTC(ts, "HH:mm:ss,SSS"));
 		} 
 
-		long duration = getDuration(AVTimeUnit.MILLISECONDS);
-		if (getDuration(AVTimeUnit.MILLISECONDS) > 0){
-			buf.append(", duration=").append(duration).append("ms");
-		}
 		
 		buf.append(", ");
 		buf.append("size=").append(getLength());
@@ -211,6 +207,11 @@ public class AVPacket {
 		buf.append("pos=").append(getSequenceNumber());
 		
 		buf.append(", t=").append(getPts());
+
+		long duration = getDuration(AVTimeUnit.MILLISECONDS);
+		if (getDuration(AVTimeUnit.MILLISECONDS) > 0){
+			buf.append(", duration=").append(duration).append("ms");
+		}
 		
 		if (isDiscard()) {
 			buf.append(" ");

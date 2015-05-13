@@ -22,8 +22,8 @@ import org.zwen.media.file.mts.PES;
 import org.zwen.media.file.mts.PESVistor;
 
 public class AACVistor extends DefaultPESVisitor implements PESVistor {
-	private static final Logger LOGGER = LoggerFactory.getLogger(AACVistor.class);
-
+	private static final Logger LOGGER = LoggerFactory
+			.getLogger(AACVistor.class);
 
 	int id;
 	int layer;
@@ -38,7 +38,7 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 	int rdb;
 	int samples;
 	long duration;
-	
+
 	private AACExtra extra = new AACExtra();
 
 	public AACVistor() {
@@ -51,17 +51,17 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 		ChannelBuffer buf = ChannelBuffers.wrappedBuffer(data);
 
 		int byt;
-		
+
 		int aacFrameLength = 0;
 		long pos = pes.pos;
 		long pts = pes.pts;
 		int dataStart = buf.readerIndex();
-		while(buf.readableBytes() > 9) {
+		while (buf.readableBytes() > 9) {
 			byt = buf.readUnsignedByte();
 			if (byt != 0xFF) {
 				continue;
 			}
-			
+
 			byt = buf.readUnsignedByte();
 			if (0xF != byt >> 4) {
 				continue;
@@ -69,16 +69,17 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 
 			int indexStart = buf.readerIndex() - 2;
 			if (buf.readerIndex() - dataStart > 7) {
-				AVPacket pkt = newPakcet(av, pts, pos, buf, dataStart, buf.readerIndex() - 2);
+				AVPacket pkt = newPakcet(av, pts, pos, buf, dataStart, buf
+						.readerIndex() - 2);
 				out.add(pkt);
-				
+
 				pts += pkt.getDuration();
 			}
 
-			id      = (byt >> 4) & 0x1;
-			layer   = (byt >> 1) & 0x3;
+			id = (byt >> 4) & 0x1;
+			layer = (byt >> 1) & 0x3;
 			crc_abs = (byt >> 0) & 0x1;
-			
+
 			data.position(buf.readerIndex());
 			BitReader bits = new BitReader(data);
 			aot = bits.readNBit(2);
@@ -87,19 +88,21 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 			ch = bits.readNBit(3);
 			originalCopy = bits.readNBit(1);
 			home = bits.readNBit(1);
-			
+
 			bits.readNBit(2); // copy right
-			
+
 			size = bits.readNBit(13);
 			bits.readNBit(11);
-			rdb = bits.readNBit(2); /** num_of_raw_data_blocks_in_frame */
+			rdb = bits.readNBit(2);
+			/** num_of_raw_data_blocks_in_frame */
 
 			aacFrameLength = size - 7;
 			dataStart = indexStart + 7;
 			if (0 == crc_abs) {
 				aacFrameLength = size - 9;
 				dataStart = indexStart + 9;
-				bits.readNBit(16); /** CRC */
+				bits.readNBit(16);
+				/** CRC */
 			}
 
 			buf.readerIndex(dataStart + aacFrameLength);
@@ -108,22 +111,26 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 			extra.setSampleRate(AACExtra.AUDIO_SAMPLING_RATES[sr]);
 			extra.setProfile(AACExtra.PROFILES[aot]);
 
-			samples = (rdb + 1) * 1024; /** samples in the frame */
-			duration =  samples * 90 * 1000 / extra.getSampleRate();
+			samples = (rdb + 1) * 1024;
+			/** samples in the frame */
+			duration = samples * 90 * 1000 / extra.getSampleRate();
 		}
 
-		if (buf.readerIndex() - dataStart > 7) {
-			AVPacket pkt = newPakcet(av, pts, pos, buf, dataStart, buf.writerIndex());
+		// the aac undealed
+		if (buf.writerIndex() - dataStart > 7) {
+			AVPacket pkt = newPakcet(av, pts, pos, buf, dataStart, buf
+					.writerIndex());
 			out.add(pkt);
-			
+
 			pts += pkt.getDuration();
 		}
 	}
-	
-	private AVPacket newPakcet(AVStream av, long pts, long pos, ChannelBuffer buf, int from, int end) {
+
+	private AVPacket newPakcet(AVStream av, long pts, long pos,
+			ChannelBuffer buf, int from, int end) {
 		AVPacket packet = new AVPacket(av);
 		av.setExtra(extra);
-		
+
 		packet.setDuration(duration);
 		packet.setPts(pts);
 		packet.setSequenceNumber(pos);
@@ -132,14 +139,13 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 		ByteBuffer data = ByteBuffer.allocate(end - from);
 		buf.getBytes(from, data);
 		data.flip();
-		
-		 System.out.println(ByteBuffers.toString(data));
+
 		packet.setData(data);
 		return packet;
 	}
-	
+
 	@Override
 	public void flush(AVStream av, Collection<AVPacket> out) {
-		
+
 	}
 }
