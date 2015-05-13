@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.media.format.AudioFormat;
 import javax.media.format.VideoFormat;
 
+import org.apache.commons.io.IOUtils;
 import org.jcodec.containers.mps.MTSDemuxer;
 import org.jcodec.containers.mps.MTSDemuxer.MTSPacket;
 import org.jcodec.containers.mps.MTSUtils.StreamType;
@@ -43,7 +44,7 @@ public class MTSReader implements Closeable {
 	// position of MTS start code
 	private ByteBuffer startCode = ByteBuffer.allocate(1);
 	private long position = 0;
-	private boolean closed;
+	private boolean isClosed;
 
 	final CountableByteChannel ch;
 	final SystemClock sysClock;
@@ -72,7 +73,15 @@ public class MTSReader implements Closeable {
 		this.visitors = vistors;
 	}
 
+	public boolean isClosed() {
+		return isClosed;
+	}
+	
+
+	
 	public int read(AVDispatcher dispatcher) throws IOException {
+		ensureOpen();
+		
 		int pid;
 		boolean payloadStart;
 		boolean foundMPEGPacket = false;
@@ -165,14 +174,19 @@ public class MTSReader implements Closeable {
 
 		if (foundMPEGPacket) {
 			return 1;
-		} else if (!foundMPEGPacket && !closed) {
-			closed = true;
-			return flush(dispatcher);
+		} else if (!foundMPEGPacket && !isClosed) {
+			int numPkt = flush(dispatcher);
+			return numPkt < 1 ? - 1 : numPkt;
 		} else {
 			return -1;
 		}
 	}
-
+	private void ensureOpen() throws IOException {
+		if(isClosed) {
+			throw new IOException("Closed");
+		}
+	}
+	
 	public int flush(AVDispatcher dispatcher) {
 		for (PES pes : pesStreams) {
 			pes.flush(buffers);
@@ -247,6 +261,7 @@ public class MTSReader implements Closeable {
 
 	@Override
 	public void close() throws IOException {
+		this.isClosed = true;
 		ch.close();
 	}
 
