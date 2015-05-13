@@ -1,5 +1,6 @@
 package org.zwen.media.rtp.codec.video.h264;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,10 +18,12 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
+import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
 import org.zwen.media.Constants;
 import org.zwen.media.codec.video.h264.H264Extra;
+import org.zwen.media.protocol.rtsp.RtpReceiver;
 import org.zwen.media.rtp.codec.IDePacketizer;
 
 import com.biasedbit.efflux.packet.DataPacket;
@@ -37,8 +40,10 @@ public class DePacketizer implements IDePacketizer {
 	private int nalType;
 	private long timestamp;
 	private ChannelBuffer frame = ChannelBuffers.buffer(256 * 1024);
-
-	public DePacketizer() {
+	private AVStream stream;
+	
+	public DePacketizer(AVStream stream) {
+		this.stream = stream;
 	}
 
 	@Override
@@ -59,13 +64,14 @@ public class DePacketizer implements IDePacketizer {
 		if (null != fmtp) {
 			matcher = Pattern.compile("packetization-mode=([\\d]+)").matcher(fmtp);
 			if (matcher.find()) {
-				extra.setPacketMode(Integer.valueOf(matcher.group(1)));
+				// extra.setPacketMode(Integer.valueOf(matcher.group(1)));
 			}
 			
 			matcher = Pattern.compile("profile-level-id=([^;]+)").matcher(fmtp);
 			if (matcher.find()) {
 				try {
-					extra.setProfile(Hex.decodeHex(matcher.group(1).toCharArray()));
+					byte[] profile = Hex.decodeHex(matcher.group(1).toCharArray());
+					extra.setProfile(profile);
 				} catch (DecoderException e) {
 					throw new IllegalArgumentException("illegal profile " + matcher.group(1));
 				}
@@ -74,10 +80,11 @@ public class DePacketizer implements IDePacketizer {
 			matcher = Pattern.compile("sprop-parameter-sets=([^,]+),([^;]+)").matcher(fmtp);
 			if (matcher.find()) {
 				byte[] sps = Base64.decodeBase64(matcher.group(1).getBytes());
-				byte[] pps = Base64.decodeBase64(matcher.group(2).getBytes());
+				extra.addSps(ByteBuffer.wrap(sps));
 				
-				extra.setSps(new byte[][]{sps});
-				extra.setPps(new byte[][]{pps});
+				byte[] pps = Base64.decodeBase64(matcher.group(2).getBytes());
+				extra.addPps(ByteBuffer.wrap(pps));
+				
 		
 				LOGGER.info("sps.byte[{}] = {}", sps.length, Hex.encodeHex(sps));
 				LOGGER.info("pps.byte[{}] = {}", pps.length, Hex.encodeHex(pps));
@@ -210,7 +217,7 @@ public class DePacketizer implements IDePacketizer {
 			frame.readBytes(data);
 			frame.clear();
 			
-			AVPacket buf = new AVPacket();
+			AVPacket buf = new AVPacket(stream);
 			buf.setDiscard(discard);
 			buf.setData(data);
 			buf.setFormat(new VideoFormat(Constants.H264_RTP));

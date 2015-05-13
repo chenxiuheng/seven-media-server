@@ -15,7 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
-import org.zwen.media.AVStreamDispatcher;
+import org.zwen.media.AVDispatcher;
+import org.zwen.media.SystemClock;
 import org.zwen.media.rtp.JitterBuffer;
 import org.zwen.media.rtp.codec.IDePacketizer;
 import org.zwen.media.rtp.codec.video.h264.DePacketizer;
@@ -39,16 +40,14 @@ public class RtpReceiver extends AVStream {
 	private long lastNumSeq = 0;
 	private AtomicLong pktCounter;
 
-	public RtpReceiver(AtomicLong sysClock, AtomicLong pktCounter) {
-		super(sysClock);
+	public RtpReceiver(int streamIndex, SystemClock sysClock, AtomicLong pktCounter) {
+		super(sysClock, streamIndex);
 		this.pktCounter = pktCounter;
 	}
 
 	public boolean setMediaDescription(MediaDescription md) throws SdpException {
 		String mediaType = md.getMedia().getMediaType();
-		RtpReceiver stream = null;
 		for (Object item : md.getMedia().getMediaFormats(true)) {
-			stream = null;
 			String format = (String) item;
 			String rtpmap = md.getAttribute("rtpmap");
 			String fmtp = md.getAttribute("fmtp");
@@ -78,12 +77,12 @@ public class RtpReceiver extends AVStream {
 
 			// payload DePacketizer
 			if ("H264".equalsIgnoreCase(encoding)) {
-				this.dePacketizer = new DePacketizer();
+				this.dePacketizer = new DePacketizer(this);
 			} else if ("MP4V-ES".equalsIgnoreCase(encoding)
 					|| "mpeg4-generic".equalsIgnoreCase(encoding)
 					|| "enc-mpeg4-generic".equalsIgnoreCase(encoding)
 					|| "enc-generic-mp4".equalsIgnoreCase(encoding)) {
-				this.dePacketizer = new org.zwen.media.rtp.codec.audio.aac.DePacketizer();
+				this.dePacketizer = new org.zwen.media.rtp.codec.audio.aac.DePacketizer(this);
 			}
 			
 			
@@ -106,7 +105,7 @@ public class RtpReceiver extends AVStream {
 
 	public boolean connect(String id, RtpParticipant localParticipant,
 			RtpParticipant remoteParticipant,
-			final AVStreamDispatcher dispatcher) {
+			final AVDispatcher dispatcher) {
 		if (null != remoteParticipant) {
 			session = new SingleParticipantSession(id, payloadType,
 					localParticipant, remoteParticipant);
@@ -138,7 +137,7 @@ public class RtpReceiver extends AVStream {
 						while (!out.isEmpty()) {
 							AVPacket pkt = out.remove(0);
 							
-							pkt.setPosition(pktCounter.getAndIncrement());
+							pkt.setSequenceNumber(pktCounter.getAndIncrement());
 							pkt.setStreamIndex(streamIndex);
 							syncTimestamp(pkt);
 							dispatcher.firePacket(RtpReceiver.this, pkt);

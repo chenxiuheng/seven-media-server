@@ -39,17 +39,20 @@ import org.jboss.netty.handler.codec.rtsp.RtspVersions;
 import org.jboss.netty.util.internal.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwen.media.AVStreamDispatcher;
+import org.zwen.media.AVDispatcher;
+import org.zwen.media.SystemClock;
 import org.zwen.media.URLUtils;
 
 import com.biasedbit.efflux.participant.RtpParticipant;
 
-public class RtspClient extends AVStreamDispatcher implements Closeable {
+public class RtspClient extends AVDispatcher implements Closeable {
 	private static final RtpReceiver[] AVSTREMS_EMPTY = new RtpReceiver[0];
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(RtspClient.class);
 
+	private SystemClock sysClock = new SystemClock();
+	
 	private String url;
 	private String user;
 	private String pass;
@@ -124,7 +127,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 
 
 			// setup streams
-			AtomicLong syncClock = new AtomicLong(300);
+			int streamIndex = 0;
 			AtomicLong pktCounter = new AtomicLong();
 			List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
 			Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions
@@ -140,7 +143,7 @@ public class RtspClient extends AVStreamDispatcher implements Closeable {
 				}
 				
 				RtpReceiver stream = null;
-				stream = new RtpReceiver(syncClock, pktCounter);
+				stream = new RtpReceiver(streamIndex, sysClock, pktCounter);
 				boolean success = stream.setMediaDescription(md);
 				if (success) {
 					stream.setStreamIndex(streams.size());

@@ -15,6 +15,7 @@ import org.zwen.media.AVPacket;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
 import org.zwen.media.codec.audio.aac.AACExtra;
+import org.zwen.media.protocol.rtsp.RtpReceiver;
 import org.zwen.media.rtp.codec.IDePacketizer;
 
 import com.biasedbit.efflux.packet.DataPacket;
@@ -22,6 +23,9 @@ import com.biasedbit.efflux.packet.DataPacket;
 public class DePacketizer implements IDePacketizer {
 	private static final Logger LOGGER = LoggerFactory
 			.getLogger(DePacketizer.class);
+
+	public DePacketizer(RtpReceiver rtpReceiver) {
+	}
 
 	@Override
 	public AVStreamExtra depacketize(MediaDescription md) throws SdpException {
@@ -50,12 +54,7 @@ public class DePacketizer implements IDePacketizer {
 
 			matcher = Pattern.compile("config=([^;]+)").matcher(fmtp);
 			if (matcher.find()) {
-				try {
-					extra.setConfig(Hex.decodeHex(matcher.group(1)
-							.toCharArray()));
-				} catch (DecoderException e) {
-					LOGGER.warn("fail decode hex [{}]", matcher.group(1));
-				}
+				LOGGER.warn("Ignored AAC configs");
 			}
 		}
 
