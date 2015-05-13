@@ -203,7 +203,7 @@ public class FlvWriter implements AVWriter {
 
 		avc.writeMedium(0x0); // stream id
 		
-		avc.writeByte(frame.isKeyFrame() ? 0x27 : 0x17); // key frame + avc
+		avc.writeByte(frame.isKeyFrame() ? 0x17 : 0x27); // key frame + avc
 		avc.writeByte(0x01); // avc NAL
 		avc.writeMedium((int)frame.getCompositionTime(AVTimeUnit.MILLISECONDS)); // Composition time offset
 		
