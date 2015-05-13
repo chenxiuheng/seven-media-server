@@ -149,6 +149,10 @@ public class AVPacket {
 		return buffer.getOffset();
 	}
 
+	public long getDuration() {
+		return buffer.getDuration();
+	}
+	
 	public long getDuration(AVTimeUnit unit) {
 		return unit.convert(buffer.getDuration(), this.timeUnit);
 	}
@@ -195,6 +199,10 @@ public class AVPacket {
 					DateFormatUtils.formatUTC(ts, "HH:mm:ss,SSS"));
 		} 
 
+		long duration = getDuration(AVTimeUnit.MILLISECONDS);
+		if (getDuration(AVTimeUnit.MILLISECONDS) > 0){
+			buf.append(", duration=").append(duration).append("ms");
+		}
 		
 		buf.append(", ");
 		buf.append("size=").append(getLength());

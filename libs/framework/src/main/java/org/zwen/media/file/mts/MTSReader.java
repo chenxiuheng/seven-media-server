@@ -31,6 +31,7 @@ import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.Constants;
 import org.zwen.media.file.CountableByteChannel;
+import org.zwen.media.file.mts.vistor.AACVistor;
 import org.zwen.media.file.mts.vistor.H264Visitor;
 
 public class MTSReader implements Closeable {
@@ -253,13 +254,13 @@ public class MTSReader implements Closeable {
 	}
 
 	public static void main(String[] args) throws IOException {
-		File file = new File("test.ts");
+		File file = new File("media_w206756986_0.ts");
 		System.out.println(file.exists());
 
 		ReadableByteChannel ch = new FileInputStream(file).getChannel();
 
 		Map<StreamType, PESVistor> vistor = new HashMap<StreamType, PESVistor>();
-		vistor.put(StreamType.AUDIO_AAC_ADTS, new DefaultPESVisitor(new AudioFormat(Constants.AAC)));
+		vistor.put(StreamType.AUDIO_AAC_ADTS, new AACVistor());
 		vistor.put(StreamType.VIDEO_H264, new H264Visitor());
 		MTSReader client = new MTSReader(ch, vistor);
 		List<AVPacket> out = new ArrayList<AVPacket>();

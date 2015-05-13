@@ -10,6 +10,8 @@ import javax.media.format.VideoFormat;
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zwen.media.codec.audio.aac.AACExtra;
+import org.zwen.media.codec.video.h264.H264Extra;
 
 
 public class AVStream {
@@ -21,6 +23,8 @@ public class AVStream {
 
 	protected int streamIndex;
 	private int frameRate = UNKNOWN;
+	private int sampleRate = UNKNOWN;
+	private int numChannels = UNKNOWN;
 
 	private Format format = FORMAT_UNKNOWN;
 	protected AVStreamExtra extra;
@@ -126,6 +130,19 @@ public class AVStream {
 	
 	public void setExtra(AVStreamExtra extra) {
 		this.extra = extra;
+		if (extra instanceof H264Extra) {
+			H264Extra h264 = (H264Extra)extra;
+			setWidth(h264.getWidth());
+			setHeight(h264.getHeight());
+		} else if (extra instanceof AACExtra) {
+			AACExtra aac = (AACExtra)extra;
+			this.numChannels = aac.getNumChannels();
+			this.sampleRate = aac.getSampleRate();
+		}
+	}
+	
+	public int getNumChannels() {
+		return numChannels;
 	}
 	
 	public void setHeight(int height) {
@@ -149,7 +166,7 @@ public class AVStream {
 	
 	
 	public int getSampleRate() {
-		return 0;
+		return sampleRate;
 	}
 
 	public int getStreamIndex() {
@@ -203,7 +220,7 @@ public class AVStream {
 		buf.append("AVStream#").append(streamIndex);
 		
 		buf.append(" ");
-		buf.append(format);
+		buf.append(null != format ? format.getEncoding() : "");
 		
 		if (lastPts != UNKNOWN) {
 			buf.append(" last_pts=").append(DateFormatUtils.format(lastPts, "HH:mm:ss,SSS"));
@@ -211,6 +228,9 @@ public class AVStream {
 		
 		if (format instanceof VideoFormat) {
 			buf.append(", s=").append(width).append("×").append(height);
+		} else if (format instanceof AudioFormat) {
+			buf.append(", sampleRate=").append(sampleRate);
+			buf.append(", channels=").append(numChannels);
 		}
 		
 		return buf.toString();

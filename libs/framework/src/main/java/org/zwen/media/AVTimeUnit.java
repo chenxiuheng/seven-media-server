@@ -7,8 +7,8 @@ public class AVTimeUnit {
 	/** 1/90 毫秒 */
 	public static final AVTimeUnit MILLISECONDS_90 = new AVTimeUnit(1, 90 * 1000)
 	;
-	final private int num;
-	final private int base; 
+	final public int num;
+	final public int base; 
 
 	public AVTimeUnit(int num, int base) {
 		this.num = num;

@@ -1,9 +1,9 @@
 package org.zwen.media.codec.audio.aac;
 
+import org.jcodec.codecs.aac.Profile;
 import org.zwen.media.AVStreamExtra;
 
 public class AACExtra implements AVStreamExtra {
-
 	public static final int[] AUDIO_SAMPLING_RATES = { 
 			96000, // 0
 			88200, // 1
@@ -22,18 +22,17 @@ public class AACExtra implements AVStreamExtra {
 			-1, // 14
 			-1, // 15
 	};
+	public static Profile[] PROFILES = {
+				Profile.MAIN, 
+				Profile.LC, 
+				Profile.OTHER, 
+				Profile.OTHER
+			};
+	
 
 	private int numChannels;
 	private int sampleRate; // pre channel
-	private byte[] config;
-
-	public void setConfig(byte[] config) {
-		this.config = config;
-	}
-
-	public byte[] getConfig() {
-		return config;
-	}
+	private Profile profile;
 
 	public int getNumChannels() {
 		return numChannels;
@@ -49,5 +48,13 @@ public class AACExtra implements AVStreamExtra {
 
 	public void setSampleRate(int sampleRate) {
 		this.sampleRate = sampleRate;
+	}
+
+	public Profile getProfile() {
+		return profile;
+	}
+
+	public void setProfile(Profile profile) {
+		this.profile = profile;
 	}
 }

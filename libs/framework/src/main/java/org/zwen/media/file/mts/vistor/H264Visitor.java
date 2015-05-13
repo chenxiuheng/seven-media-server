@@ -94,8 +94,6 @@ public class H264Visitor implements PESVistor {
 				extra.addPps(pps);
 				extra.addSps(sps);
 				av.setExtra(extra);
-				av.setHeight(extra.getHeight());
-				av.setWidth(extra.getWidth());
 				
 				ByteBuffer buf = ByteBuffer.allocate(sps.limit() + pps.limit() + 2 * START_CODE.length);
 				

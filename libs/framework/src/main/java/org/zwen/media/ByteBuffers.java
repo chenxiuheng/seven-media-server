@@ -5,6 +5,15 @@ import java.nio.ByteBuffer;
 import org.apache.commons.codec.binary.Hex;
 
 public class ByteBuffers {
+	public static final ByteBuffer read(ByteBuffer buf, int length) {
+		ByteBuffer newBuf = ByteBuffer.allocate(length);
+		for (int i = 0; i < length && buf.remaining() > 0; i++) {
+			newBuf.put(buf.get());
+		}
+		newBuf.flip();
+		
+		return newBuf;
+	}
 	public static final ByteBuffer copy(ByteBuffer buf) {
 		if (null == buf) {
 			return null;
