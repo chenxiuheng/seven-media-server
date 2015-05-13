@@ -48,23 +48,18 @@ public class H264Visitor implements PESVistor {
 				case PPS:
 					pps = nal;
 					break;
-				case ACC_UNIT_DELIM:
-				case END_OF_SEQ:
-					break;
 				case END_OF_STREAM:
 					isEOM = true;
 					break;
 				case IDR_SLICE:
 					isKey = true;
-					raw.put(START_CODE);
-					raw.put(nal.duplicate());
 					break;
-				case NON_IDR_SLICE:
 				default:
-					raw.put(START_CODE);
-					raw.put(nal.duplicate());
 					break;
 				}
+
+				raw.put(START_CODE);
+				raw.put(nal.duplicate());
 			}
 			raw.flip();
 
