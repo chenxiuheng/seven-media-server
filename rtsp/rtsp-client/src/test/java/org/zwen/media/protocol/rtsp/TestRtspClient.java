@@ -78,7 +78,7 @@ public class TestRtspClient extends TestCase {
 
 			@Override
 			public void onSetup(AVStream[] streams) {
-				writer.setStreams(Arrays.asList(streams));
+				writer.setStreams(streams);
 				try {
 					writer.writeHead();
 				} catch (IOException e) {
@@ -90,7 +90,7 @@ public class TestRtspClient extends TestCase {
 			@Override
 			public void onPacket(AVStream stream, AVPacket packet) {
 				try {
-					writer.write(packet);
+					writer.write(stream, packet);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -127,7 +127,7 @@ public class TestRtspClient extends TestCase {
 
 			@Override
 			public void onSetup(AVStream[] streams) {
-				writer.setStreams(Arrays.asList(streams));
+				writer.setStreams(streams);
 				try {
 					writer.writeHead();
 				} catch (IOException e) {
@@ -139,7 +139,7 @@ public class TestRtspClient extends TestCase {
 			@Override
 			public void onPacket(AVStream stream, AVPacket packet) {
 				try {
-					writer.write(packet);
+					writer.write(stream, packet);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
