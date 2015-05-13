@@ -30,9 +30,9 @@ public class AACExtra implements AVStreamExtra {
 			};
 	
 
-	private int numChannels;
-	private int sampleRate; // pre channel
-	private Profile profile;
+	private int numChannels = 2;
+	private int sampleRate = 44100; // 44100, is the only value supported by flv
+	private Profile profile = Profile.LC;
 
 	public int getNumChannels() {
 		return numChannels;
