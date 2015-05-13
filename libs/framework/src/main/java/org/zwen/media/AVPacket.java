@@ -10,7 +10,7 @@ import org.apache.commons.lang.time.DateFormatUtils;
 public class AVPacket {
 	private int streamIndex;
 	private Buffer buffer;
-	private long compositionTime = AVStream.UNKNOWN;
+	private long compositionTime = 0;
 	private AVTimeUnit timeUnit;
 
 	public AVPacket(AVStream stream) {
@@ -26,6 +26,10 @@ public class AVPacket {
 
 	public void setCompositionTime(long compositionTime) {
 		this.compositionTime = compositionTime;
+	}
+	
+	public long getCompositionTime(AVTimeUnit unit) {
+		return unit.convert(compositionTime, timeUnit);
 	}
 	
 	public void setTimeUnit(AVTimeUnit timeUnit) {

@@ -1,55 +1,58 @@
 package org.zwen.media.file.flv;
 
-import static com.flazr.rtmp.message.AbstractMessage.map;
-import static com.flazr.rtmp.message.AbstractMessage.pair;
-
-import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.media.Format;
+import javax.media.format.AudioFormat;
 import javax.media.format.VideoFormat;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jcodec.codecs.h264.H264Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
-import org.zwen.media.ByteBuffers;
+import org.zwen.media.AVWriter;
 import org.zwen.media.Constants;
+import org.zwen.media.codec.audio.aac.AACExtra;
 import org.zwen.media.codec.video.h264.H264Extra;
 
 import com.flazr.rtmp.message.MetadataAmf0;
 
-public class FlvWriter implements Closeable {
+public class FlvWriter implements AVWriter {
 	private static final Logger logger = LoggerFactory
 			.getLogger(FlvWriter.class);
 
 	private GatheringByteChannel out;
 
-	private List<AVStream> streams = Collections.emptyList();
 
+	private AVStream[] streams;
+	
 	public FlvWriter(GatheringByteChannel out) {
 		this.out = out;
 	}
-
-	public void setStreams(List<? extends AVStream> streams) {
-		this.streams = new ArrayList<AVStream>(streams);
+	
+	public void setStreams(AVStream[] streams) {
+		this.streams = streams;
 	}
 
+
 	public void writeHead() throws IOException {
+		if (null == streams) {
+			throw new IllegalArgumentException("No Streams Found");
+		}
+
 		ChannelBuffer buffer = ChannelBuffers.buffer(1024);
 
 		int dataSize = 0;
-		boolean hasVideo = AVStream.hasVideo(streams);
-		boolean hasAudio = AVStream.hasAudio(streams);
 
 		// flv header
 		buffer.writeByte('F');
@@ -62,13 +65,31 @@ public class FlvWriter implements Closeable {
 		buffer.writeInt(0x00); // first tag size
 
 		// metadata
-		Map<String, Object> map = map(pair("duration", 0),
-				pair("width", 640.0), pair("height", 352.0), pair(
-						"videocodecid", "avc1"), pair("audiocodecid", "mp4a"),
-				pair("avcprofile", 100.0), pair("avclevel", 30.0), pair(
-						"aacaot", 2.0), pair("videoframerate",
-						29.97002997002997), pair("audiosamplerate", 24000.0),
-				pair("audiochannels", 2.0));
+		Map<String, Object> map = new LinkedHashMap<String, Object>();
+		map.put("duration", 0);
+		for (int i = 0; i < streams.length; i++) {
+			AVStream av = (AVStream)streams[i];
+			
+			if (av.getFormat() instanceof VideoFormat) {
+				if (av.getWidth() > 0) {
+					map.put("width", av.getWidth());
+				}
+				if (av.getHeight() > 0) {
+					map.put("heigth", av.getHeight());
+				}
+				if (av.getFrameRate() > 0) {
+					map.put("videoframerate", av.getFrameRate());
+				}
+			} else if (av.getFormat() instanceof AudioFormat) {
+				if (av.getSampleRate() > 0) {
+					map.put("audiosamplerate", av.getSampleRate());
+				}
+				if (av.getNumChannels() > 0) {
+					map.put("audiochannels", av.getNumChannels());
+				}
+			}
+		}
+		
 		ChannelBuffer onMetaData = new MetadataAmf0("onMetaData", map).encode();
 		dataSize = onMetaData.readableBytes();
 		buffer.writeByte(0x18); // script type
@@ -84,18 +105,18 @@ public class FlvWriter implements Closeable {
 			AVStreamExtra extra = stream.getExtra();
 			if (extra instanceof H264Extra) {
 				H264Extra h264 = (H264Extra) extra;
-				
+				ByteBuffer profile = h264.readProfile();
+				if (null == profile || profile.remaining() != 3) {
+					logger.warn("H264.profile is NOT FOUND");
+					continue;
+				}
+
 				ChannelBuffer avc = ChannelBuffers.buffer(128);
 				avc.writeByte(0x17); // key frame + avc
 				avc.writeByte(0x00); // avc sequence header
 				avc.writeMedium(0x00); // Composition time offset
 
-				ByteBuffer profile = h264.readProfile();
-				if (null == profile || profile.remaining() != 3) {
-					throw new IllegalArgumentException(
-							"illegal profile of h264 - "
-									+ ByteBuffers.toString(profile));
-				}
+				
 				avc.writeByte(0x01);
 				avc.writeBytes(profile);
 				avc.writeByte(0xFF); // 4 byte for nal header length
@@ -120,6 +141,23 @@ public class FlvWriter implements Closeable {
 				buffer.writeBytes(avc);
 				
 				buffer.writeInt(11 + dataSize);
+			} else if (extra instanceof AACExtra) {
+				AACExtra aac = (AACExtra)extra;
+				
+				ChannelBuffer data = ChannelBuffers.buffer(4);
+				
+				data.writeByte(0xAF); // aac, 44100, 2 channels, stereo
+				data.writeByte(0x00); // aac header
+				
+				dataSize = data.readableBytes();
+				buffer.writeByte(0x08);
+				buffer.writeMedium(data.readableBytes()); // data size
+				buffer.writeInt(0x00); // timestamp
+				buffer.writeMedium(0x00); // stream id
+				
+				buffer.writeBytes(data); // data
+
+				buffer.writeInt(11 + dataSize); // pre tag size
 			} else {
 				logger.warn("unsupported {}", stream.getFormat());
 			}
@@ -128,25 +166,35 @@ public class FlvWriter implements Closeable {
 		buffer.readBytes(out, buffer.readableBytes());
 	}
 
-	public void write(AVPacket frame) throws IOException {
-		if (frame.getFormat() instanceof VideoFormat) {
-			VideoFormat vf = (VideoFormat) frame.getFormat();
-			if (Constants.H264_RTP.equals(vf.getEncoding())) {
-				writeH264WithStartCode(frame);
-				return;
-			}
+	public void write(AVStream av, AVPacket frame) throws IOException {
+		Format vf = frame.getFormat();
+		if (Constants.H264.equals(vf.getEncoding())) {
+			writeH264WithStartCode(frame);
+			return;
+		} else if (Constants.AAC.equalsIgnoreCase(vf.getEncoding())) {
+			writeAAC(frame);
+			return;
 		}
 
 		logger.warn("unsupported format {}", frame.getFormat());
 	}
 
 	private void writeH264WithStartCode(AVPacket frame) throws IOException {
-		ChannelBuffer data = ChannelBuffers.wrappedBuffer(frame.getData());
-
+		ByteBuffer data = frame.getData();
+		if (data.remaining() > 4 && 1 != data.getInt(data.position())) {
+			logger.warn("H264 Not Start With 0x00 00 00 01");
+			return;
+		}
+		List<ByteBuffer> segs = H264Utils.splitFrame(data);
+		
+		int dataSize = 5 + 4 * segs.size();
+		for (ByteBuffer seg : segs) {
+			dataSize += seg.remaining();
+		}
 
 		ChannelBuffer avc = ChannelBuffers.buffer(11 + frame.getLength() + 4 + 4 + 5);
 		avc.writeByte(0x09); // video type
-		avc.writeMedium(0); // tag data size
+		avc.writeMedium(dataSize); // tag data size
 		
 		// timestamp
 		long timestamp = frame.getPts(AVTimeUnit.MILLISECONDS);
@@ -157,33 +205,53 @@ public class FlvWriter implements Closeable {
 		
 		avc.writeByte(frame.isKeyFrame() ? 0x27 : 0x17); // key frame + avc
 		avc.writeByte(0x01); // avc NAL
-		avc.writeMedium(0xc8); // Composition time offset
-		if (data.getMedium(0) == 1) {
-			data.readMedium();
-			avc.writeInt(data.readableBytes());
-			avc.writeBytes(data);
-		} else if (data.getInt(0) == 1) {
-			data.readInt();
-			avc.writeInt(data.readableBytes());
-			avc.writeBytes(data);
-		} else {
-			logger.warn("Cant Find Start Code, {}", frame);
-			return;
+		avc.writeMedium((int)frame.getCompositionTime(AVTimeUnit.MILLISECONDS)); // Composition time offset
+		
+		// data
+		for (ByteBuffer seg : segs) {
+			avc.writeInt(seg.remaining());
+			avc.writeBytes(seg);
 		}
 		
-		int tagSize = avc.readableBytes();
-		int dataSize = tagSize - 11;
-		avc.setMedium(1, dataSize); // update tag data size 
-		avc.writeInt(tagSize);
-		
+		avc.writeInt(avc.readableBytes()); // pre tag size
+
 		avc.readBytes(out, avc.readableBytes());
 	}
 
+	private void writeAAC(AVPacket frame) throws IOException {
+		ByteBuffer data = frame.getData();
+		int dataSize = 2 + data.remaining();
+		
+		ChannelBuffer aac = ChannelBuffers.buffer(11 + dataSize + 4);
+		aac.writeByte(0x08);
+		aac.writeMedium(dataSize);
+		
+		// timestamp
+		long timestamp = frame.getPts(AVTimeUnit.MILLISECONDS);
+		aac.writeMedium((int)(0xFFFFFF & timestamp));
+		aac.writeByte((int)(0xFF & (timestamp >> 24)));
+		
+		aac.writeMedium(0);
+		
+		aac.writeByte(0xAF); // aac, 44100, 2 channels, stereo
+		aac.writeByte(0x01); // aac data
+		aac.writeBytes(data);
+		
+		aac.writeInt(aac.readableBytes()); // pre tag size
+		aac.readBytes(out, aac.readableBytes());
+	}
+
+	@Override
+	public void writeTail() throws IOException {
+		
+	}
+	
 	@Override
 	public void close() throws IOException {
 		if (null != out) {
 			out.close();
 		}
 	}
+
 
 }

@@ -31,7 +31,7 @@ public class AVStream {
 	public static final int UNKNOWN = -1;
 
 	protected int streamIndex;
-	private int frameRate = UNKNOWN;
+	private double frameRate = UNKNOWN;
 	private int sampleRate = UNKNOWN;
 	private int numChannels = UNKNOWN;
 
@@ -120,7 +120,7 @@ public class AVStream {
 
 		if (format instanceof VideoFormat) {
 			if (getFrameRate() > 0) {
-				diff = 1000 * 90 / getFrameRate();
+				diff = (int)Math.ceil(1000 * 90 / getFrameRate());
 			} else {
 				diff = MIN_VIDEO_DIFF; // fps = 25, default
 			}
@@ -187,11 +187,11 @@ public class AVStream {
 		return streamIndex;
 	}
 	
-	public int getFrameRate() {
+	public double getFrameRate() {
 		return frameRate;
 	}
 
-	public void setFrameRate(int frameRate) {
+	public void setFrameRate(double frameRate) {
 		this.frameRate = frameRate;
 	}
 	
