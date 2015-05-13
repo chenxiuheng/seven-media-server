@@ -123,7 +123,7 @@ public class HLSClient extends AVDispatcher implements Closeable {
 		PipedInputStream pipedIn = new PipedInputStream(pipedOut);
 		
 		Map<StreamType, PESVistor> visitors = new HashMap<StreamType, PESVistor>();
-		visitors.put(StreamType.AUDIO_AAC_ADTS, new DefaultPESVisitor(new AudioFormat(Constants.AAC_ADTS)));
+		visitors.put(StreamType.AUDIO_AAC_ADTS, new DefaultPESVisitor(new AudioFormat(Constants.AAC)));
 		visitors.put(StreamType.VIDEO_H264, new H264Visitor());
 		InputStream in = get.getResponseBodyAsStream();
 		final MTSReader reader = new MTSReader(Channels.newChannel(pipedIn), visitors);

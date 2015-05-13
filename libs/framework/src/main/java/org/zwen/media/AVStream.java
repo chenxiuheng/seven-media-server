@@ -18,14 +18,17 @@ public class AVStream {
 	private static final Logger logger = LoggerFactory.getLogger(AVStream.class);
 	
 	public static final int UNKNOWN = -1;
-	private Format format = FORMAT_UNKNOWN;
-	private int frameRate = UNKNOWN;
-	protected AVStreamExtra extra;
+
 	protected int streamIndex;
+	private int frameRate = UNKNOWN;
+
+	private Format format = FORMAT_UNKNOWN;
+	protected AVStreamExtra extra;
+	private int height = UNKNOWN;
+	private int width = UNKNOWN;
 	
-	final public AVStreamExtra getExtra(){
-		 return extra;
-	 }
+	
+	
 
 	/* used for PTS sync */
 	/** 
@@ -91,11 +94,6 @@ public class AVStream {
 			logger.debug("set diff = {}, {}", diff, packet);
 		}
 	}
-
-	public void setFormat(Format format) {
-		this.format = format;
-	}
-	
 	private long getDefaultTimestampDifferent(long defaultDiff) {
 		long diff = defaultDiff;
 		if (defaultDiff < 700 && defaultDiff > 0) {
@@ -119,6 +117,36 @@ public class AVStream {
 		
 		return diff;
 	}
+	
+	
+	
+	final public AVStreamExtra getExtra(){
+		 return extra;
+	 }
+	
+	public void setExtra(AVStreamExtra extra) {
+		this.extra = extra;
+	}
+	
+	public void setHeight(int height) {
+		this.height = height;
+	}
+	
+	public int getHeight() {
+		return height;
+	}
+	
+	public int getWidth() {
+		return width;
+	}
+	public void setWidth(int width) {
+		this.width = width;
+	}
+
+	public void setFormat(Format format) {
+		this.format = format;
+	}
+	
 	
 	public int getSampleRate() {
 		return 0;
@@ -179,6 +207,10 @@ public class AVStream {
 		
 		if (lastPts != UNKNOWN) {
 			buf.append(" last_pts=").append(DateFormatUtils.format(lastPts, "HH:mm:ss,SSS"));
+		}
+		
+		if (format instanceof VideoFormat) {
+			buf.append(", s=").append(width).append("×").append(height);
 		}
 		
 		return buf.toString();

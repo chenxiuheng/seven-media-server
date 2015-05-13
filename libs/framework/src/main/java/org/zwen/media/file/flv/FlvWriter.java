@@ -5,9 +5,9 @@ import static com.flazr.rtmp.message.AbstractMessage.pair;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +22,7 @@ import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
+import org.zwen.media.ByteBuffers;
 import org.zwen.media.Constants;
 import org.zwen.media.codec.video.h264.H264Extra;
 
@@ -89,30 +90,27 @@ public class FlvWriter implements Closeable {
 				avc.writeByte(0x00); // avc sequence header
 				avc.writeMedium(0x00); // Composition time offset
 
-				if (null == h264.getProfile() || h264.getProfile().length != 3) {
+				ByteBuffer profile = h264.readProfile();
+				if (null == profile || profile.remaining() != 3) {
 					throw new IllegalArgumentException(
 							"illegal profile of h264 - "
-									+ Arrays.toString(h264.getProfile()));
+									+ ByteBuffers.toString(profile));
 				}
 				avc.writeByte(0x01);
-				avc.writeBytes(h264.getProfile());
+				avc.writeBytes(profile);
 				avc.writeByte(0xFF); // 4 byte for nal header length
 
 				// sps(s)
-				avc.writeByte(0xE0 | h264.getSps().length);
-				for (int i = 0; i < h264.getSps().length; i++) {
-					byte[] sps = h264.getSps()[i];
-					avc.writeShort(sps.length);
-					avc.writeBytes(sps);
-				}
+				ByteBuffer sps = h264.readSps();
+				avc.writeByte(0xE0 | 0x01);
+				avc.writeShort(sps.remaining());
+				avc.writeBytes(sps);
 
 				// pps(s)
-				avc.writeByte(h264.getPps().length);
-				for (int i = 0; i < h264.getPps().length; i++) {
-					byte[] pps = h264.getPps()[i];
-					avc.writeShort(pps.length);
-					avc.writeBytes(pps);
-				}
+				ByteBuffer pps = h264.readPps();
+				avc.writeByte(0x01);
+				avc.writeShort(pps.remaining());
+				avc.writeBytes(pps);
 
 				dataSize = avc.readableBytes();
 				buffer.writeByte(0x09); // video type

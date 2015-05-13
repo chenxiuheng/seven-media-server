@@ -4,16 +4,17 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 
+import javax.media.format.VideoFormat;
+
 import org.jcodec.codecs.h264.H264Utils;
 import org.jcodec.codecs.h264.io.model.NALUnit;
-import org.jcodec.codecs.h264.io.write.NALUnitWriter;
 import org.jcodec.containers.mps.MPSDemuxer.PESPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.AVTimeUnit;
-import org.zwen.media.Constants;
+import org.zwen.media.codec.video.h264.H264Extra;
 import org.zwen.media.file.mts.PESVistor;
 
 public class H264Visitor implements PESVistor {
@@ -21,6 +22,7 @@ public class H264Visitor implements PESVistor {
 			.getLogger(H264Visitor.class);
 	private static final byte[] START_CODE = new byte[] { 0, 0, 0, 1 };
 
+	private H264Extra extra = new H264Extra();
 	private PESPacket prePES;
 
 	@Override
@@ -87,7 +89,14 @@ public class H264Visitor implements PESVistor {
 			packet.setTimeUnit(AVTimeUnit.MILLISECONDS_90);
 			packet.setSequenceNumber(prePES.pos);
 
+			// set sps+pps for avstream
 			if (null != sps && null != pps) {
+				extra.addPps(pps);
+				extra.addSps(sps);
+				av.setExtra(extra);
+				av.setHeight(extra.getHeight());
+				av.setWidth(extra.getWidth());
+				
 				ByteBuffer buf = ByteBuffer.allocate(sps.limit() + pps.limit() + 2 * START_CODE.length);
 				
 				buf.put(START_CODE);
