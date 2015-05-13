@@ -4,7 +4,6 @@ package org.zwen.media;
 public class Constants {
 
 	public static final int MPEGTS_PACKET_SIZE = 188;
-	public static String H264_RTP = "H264/RTP";
 	public static String H264 = "H264";
 	public static String AAC = "AAC";
 	
