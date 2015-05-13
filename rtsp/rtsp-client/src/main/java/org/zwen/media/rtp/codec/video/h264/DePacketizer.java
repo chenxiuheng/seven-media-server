@@ -220,7 +220,7 @@ public class DePacketizer implements IDePacketizer {
 			AVPacket buf = new AVPacket(stream);
 			buf.setDiscard(discard);
 			buf.setData(data);
-			buf.setFormat(new VideoFormat(Constants.H264_RTP));
+			buf.setFormat(new VideoFormat(Constants.H264));
 			buf.setPts(timestamp);
 			buf.setTimeUnit(timeUnit);
 			if (nalType == 5) {
