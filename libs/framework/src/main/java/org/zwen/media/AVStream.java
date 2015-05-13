@@ -15,6 +15,15 @@ import org.zwen.media.codec.video.h264.H264Extra;
 
 
 public class AVStream {
+	/** a group samples  mp3 always be 26ms, */
+	private static final int MP3_DIFF = 26 * 90;
+	/** experience value */
+	private static final int MIN_AUDIO_DIFF = 23 * 90;
+	/** 25 fps **/
+	private static final int MIN_VIDEO_DIFF = 40 * 90;
+	/** in MPEG TS, the diff is GT 700ms, Player must do sync */
+	private static final int MAX_ASYNC_DIFF = 700 * 90;
+
 	private static final Format FORMAT_UNKNOWN = new Format("UNKNOWN");
 
 	private static final Logger logger = LoggerFactory.getLogger(AVStream.class);
@@ -41,7 +50,7 @@ public class AVStream {
 	 * The stream must update lastClose
 	 *   when its own PTS left 700ms then sysClock,
 	 */
-	protected AtomicLong sysClock;
+	protected SystemClock sysClock;
 	
 
 	/**
@@ -60,7 +69,7 @@ public class AVStream {
 	 */
 	protected long lastPts = UNKNOWN;
 	
-	public AVStream(AtomicLong sysClock, int streamIndex) {
+	public AVStream(SystemClock sysClock, int streamIndex) {
 		this.sysClock = sysClock;
 		this.lastClock = sysClock.get();
 		this.streamIndex = streamIndex;
@@ -69,51 +78,56 @@ public class AVStream {
 	public void syncTimestamp(AVPacket packet) {
 		final long lastClock = this.lastClock;
 		final long lastDiff = this.diff;
-		long pts = packet.getPts(AVTimeUnit.MILLISECONDS);
-		long duration = packet.getDuration(AVTimeUnit.MILLISECONDS);
+		long pts = packet.getPts(AVTimeUnit.MILLISECONDS_90);
+		long duration = packet.getDuration(AVTimeUnit.MILLISECONDS_90);
 		
 		if (this.lastPts != UNKNOWN) {
 			long diff = pts - this.lastPts;
-			if (diff < 0 || diff > 700) {
+			if (diff < 0 || diff > MAX_ASYNC_DIFF) {
 				diff = lastDiff;
 			} 
 
-			if (Math.abs(sysClock.get() - (lastClock + diff)) < 700) {
-				sysClock.set(Math.max(sysClock.get(), lastClock + diff));
+			long timestamp = sysClock.get();
+			if (!sysClock.isInitialed() || Math.abs(timestamp - (lastClock + diff)) < MAX_ASYNC_DIFF) {
+				sysClock.update(timestamp, Math.max(timestamp, lastClock + diff));
 				
-				packet.setPts(lastClock + diff, AVTimeUnit.MILLISECONDS);
+				packet.setPts(lastClock + diff, AVTimeUnit.MILLISECONDS_90);
 				this.diff = diff;
 			} else {
-				packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS);
+				packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS_90);
 			}
+		} else if (sysClock.isInitialed()){
+			packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS_90);
+			this.diff = getDefaultTimestampDifferent(duration);
 		} else {
-			packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS);
 			this.diff = getDefaultTimestampDifferent(duration);
 		}
 		
+		packet.setDuration(packet.getTimeUnit().convert(diff, AVTimeUnit.MILLISECONDS_90));
+		
 		this.lastPts = pts;
-		this.lastClock = packet.getPts(AVTimeUnit.MILLISECONDS);
+		this.lastClock = packet.getPts(AVTimeUnit.MILLISECONDS_90);
 		
 		if (logger.isDebugEnabled()) {
-			logger.debug("set diff = {}, {}", diff, packet);
+			// logger.debug("set diff = {}, {}", diff, packet);
 		}
 	}
 	private long getDefaultTimestampDifferent(long defaultDiff) {
 		long diff = defaultDiff;
-		if (defaultDiff < 700 && defaultDiff > 0) {
+		if (defaultDiff < MAX_ASYNC_DIFF && defaultDiff > 0) {
 			return diff;
 		}
 
 		if (format instanceof VideoFormat) {
 			if (getFrameRate() > 0) {
-				diff = 1000 / getFrameRate();
+				diff = 1000 * 90 / getFrameRate();
 			} else {
-				diff = 40; // fps = 25, default
+				diff = MIN_VIDEO_DIFF; // fps = 25, default
 			}
 		} else if (format instanceof AudioFormat) {
-			diff = 23; 
+			diff = MIN_AUDIO_DIFF; 
 			if (format.getEncoding().equals(Constants.MP3)) {
-				diff = 26; // a group samples  mp3 always be 26ms,
+				diff = MP3_DIFF; // a group samples  mp3 always be 26ms,
 			}
 		} else if (null == format) {
 			throw new IllegalArgumentException("Unknown AVStream Format");

@@ -30,6 +30,7 @@ import org.zwen.media.AVDispatcher;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 import org.zwen.media.Constants;
+import org.zwen.media.SystemClock;
 import org.zwen.media.file.CountableByteChannel;
 import org.zwen.media.file.mts.vistor.AACVistor;
 import org.zwen.media.file.mts.vistor.H264Visitor;
@@ -38,28 +39,6 @@ public class MTSReader implements Closeable {
 	private static org.slf4j.Logger LOGGER = LoggerFactory
 			.getLogger(MTSReader.class);
 
-	private static final Comparator<? super AVPacket> COMPARATOR = new Comparator<AVPacket>() {
-		@Override
-		public int compare(AVPacket pkt1, AVPacket pkt2) {
-			long a = pkt1.getSequenceNumber();
-			long b = pkt2.getSequenceNumber();
-
-			long p1 = pkt1.getPts();
-			long p2 = pkt2.getPts();
-			if (p1 != p2) {
-				return p1 < p2 ? -1 : 1;
-			}
-			
-			if (a == b) {
-				return 0;
-			} else if (a > b) {
-				return 1;
-			} else // a < b
-			{
-				return -1;
-			}
-		}
-	};
 
 	// position of MTS start code
 	private ByteBuffer startCode = ByteBuffer.allocate(1);
@@ -67,7 +46,7 @@ public class MTSReader implements Closeable {
 	private boolean closed;
 
 	final CountableByteChannel ch;
-	final AtomicLong sysClock = new AtomicLong(300);
+	final SystemClock sysClock;
 
 	// pat
 	private HashSet<Integer> patPrograms = new HashSet<Integer>();
@@ -83,15 +62,14 @@ public class MTSReader implements Closeable {
 	private int bufferLength = 50; // 0.5s for video which is 25fps
 	private TreeSet<AVPacket> buffers = new TreeSet<AVPacket>(COMPARATOR);
 
-	public MTSReader(ReadableByteChannel src,
-			Map<StreamType, PESVistor> visitors) {
+	public MTSReader(ReadableByteChannel src, SystemClock sysClock) {
+		this.sysClock = sysClock;
 		ch = new CountableByteChannel(src);
 
-		this.visitors = visitors;
-	}
-
-	public AVStream[] getAvstream() {
-		return null;
+		Map<StreamType, PESVistor> vistors = new HashMap<StreamType, PESVistor>();
+		vistors.put(StreamType.AUDIO_AAC_ADTS, new AACVistor());
+		vistors.put(StreamType.VIDEO_H264, new H264Visitor());
+		this.visitors = vistors;
 	}
 
 	public int read(AVDispatcher dispatcher) throws IOException {
@@ -211,6 +189,7 @@ public class MTSReader implements Closeable {
 			AVPacket pkt = buffers.pollFirst();
 			AVStream stream = pesStreams[pkt.getStreamIndex()].stream;
 
+			stream.syncTimestamp(pkt);
 			if (!stream.getFormat().equals(pkt.getFormat())) {
 				LOGGER.error("AVStream[{}] with AVPacket NOT SAME Format",
 						stream.getFormat(), pkt.getFormat());
@@ -264,30 +243,33 @@ public class MTSReader implements Closeable {
 		}
 	}
 
-	public static void main(String[] args) throws IOException {
-		File file = new File("media_w206756986_0.ts");
-		System.out.println(file.exists());
-
-		ReadableByteChannel ch = new FileInputStream(file).getChannel();
-
-		Map<StreamType, PESVistor> vistor = new HashMap<StreamType, PESVistor>();
-		vistor.put(StreamType.AUDIO_AAC_ADTS, new AACVistor());
-		vistor.put(StreamType.VIDEO_H264, new H264Visitor());
-		MTSReader client = new MTSReader(ch, vistor);
-		List<AVPacket> out = new ArrayList<AVPacket>();
-
-		AVDispatcher dispatcher = new AVDispatcher();
-		while (-1 != client.read(dispatcher)) {
-			while (!out.isEmpty()) {
-				AVPacket av = out.remove(0);
-				System.out.println(av);
-			}
-		}
-	}
+	
 
 	@Override
 	public void close() throws IOException {
 		ch.close();
 	}
 
+	private static final Comparator<? super AVPacket> COMPARATOR = new Comparator<AVPacket>() {
+		@Override
+		public int compare(AVPacket pkt1, AVPacket pkt2) {
+			long a = pkt1.getSequenceNumber();
+			long b = pkt2.getSequenceNumber();
+
+			long p1 = pkt1.getPts();
+			long p2 = pkt2.getPts();
+			if (p1 != p2) {
+				return p1 < p2 ? -1 : 1;
+			}
+			
+			if (a == b) {
+				return 0;
+			} else if (a > b) {
+				return 1;
+			} else // a < b
+			{
+				return -1;
+			}
+		}
+	};
 }

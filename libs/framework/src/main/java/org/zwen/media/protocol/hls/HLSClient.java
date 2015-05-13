@@ -6,15 +6,11 @@ import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.channels.Channels;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.media.format.AudioFormat;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
@@ -23,18 +19,13 @@ import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.params.HttpClientParams;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.jcodec.containers.mps.MTSUtils.StreamType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVDispatcher;
-import org.zwen.media.AVStream;
-import org.zwen.media.Constants;
+import org.zwen.media.SystemClock;
 import org.zwen.media.Threads;
 import org.zwen.media.URLUtils;
-import org.zwen.media.file.mts.DefaultPESVisitor;
 import org.zwen.media.file.mts.MTSReader;
-import org.zwen.media.file.mts.PESVistor;
-import org.zwen.media.file.mts.vistor.H264Visitor;
 
 
 public class HLSClient extends AVDispatcher implements Closeable {
@@ -42,6 +33,7 @@ public class HLSClient extends AVDispatcher implements Closeable {
 	
 	private boolean isClosed;
 	
+	private SystemClock clock = new SystemClock();
 	private HttpClient client;
 	final private String url;
 	final private int selectIndex;
@@ -122,13 +114,8 @@ public class HLSClient extends AVDispatcher implements Closeable {
 		PipedOutputStream pipedOut = new PipedOutputStream();
 		PipedInputStream pipedIn = new PipedInputStream(pipedOut);
 		
-		Map<StreamType, PESVistor> visitors = new HashMap<StreamType, PESVistor>();
-		visitors.put(StreamType.AUDIO_AAC_ADTS, new DefaultPESVisitor(new AudioFormat(Constants.AAC)));
-		visitors.put(StreamType.VIDEO_H264, new H264Visitor());
 		InputStream in = get.getResponseBodyAsStream();
-		final MTSReader reader = new MTSReader(Channels.newChannel(pipedIn), visitors);
-		
-		AVStream[] streams = reader.getAvstream();
+		final MTSReader reader = new MTSReader(Channels.newChannel(pipedIn), clock);
 		
 		Future<Boolean> future = Threads.submit(new Callable<Boolean>() {
 			
