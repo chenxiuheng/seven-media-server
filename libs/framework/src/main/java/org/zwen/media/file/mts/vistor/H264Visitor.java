@@ -1,14 +1,17 @@
 package org.zwen.media.file.mts.vistor;
 
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 
 import org.jcodec.codecs.h264.H264Utils;
 import org.jcodec.codecs.h264.io.model.NALUnit;
+import org.jcodec.codecs.h264.io.write.NALUnitWriter;
 import org.jcodec.containers.mps.MPSDemuxer.PESPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
+import org.zwen.media.AVStream;
 import org.zwen.media.AVTimeUnit;
 import org.zwen.media.Constants;
 import org.zwen.media.file.mts.PESVistor;
@@ -21,7 +24,7 @@ public class H264Visitor implements PESVistor {
 	private PESPacket prePES;
 
 	@Override
-	public void flush(List<AVPacket> out) {
+	public void flush(AVStream av, Collection<AVPacket> out) {
 		if (null != prePES) {
 			ByteBuffer data = prePES.data;
 			List<ByteBuffer> nals = H264Utils.splitFrame(data);
@@ -30,6 +33,7 @@ public class H264Visitor implements PESVistor {
 			// but our start code length is 4
 			ByteBuffer raw = ByteBuffer.allocate(data.limit() + nals.size());
 
+			boolean isEOM = false;
 			boolean isKey = false;
 			ByteBuffer sps = null;
 			ByteBuffer pps = null;
@@ -44,20 +48,21 @@ public class H264Visitor implements PESVistor {
 				case PPS:
 					pps = nal;
 					break;
+				case ACC_UNIT_DELIM:
+				case END_OF_SEQ:
+					break;
+				case END_OF_STREAM:
+					isEOM = true;
+					break;
 				case IDR_SLICE:
 					isKey = true;
 					raw.put(START_CODE);
 					raw.put(nal.duplicate());
 					break;
 				case NON_IDR_SLICE:
+				default:
 					raw.put(START_CODE);
 					raw.put(nal.duplicate());
-					break;
-				case ACC_UNIT_DELIM:
-
-					break;
-
-				default:
 					break;
 				}
 			}
@@ -69,14 +74,29 @@ public class H264Visitor implements PESVistor {
 				compositeTime = prePES.pts - prePES.dts;
 			}
 
-			AVPacket packet = new AVPacket();
+			
+			
+			AVPacket packet = new AVPacket(av);
+			packet.setStreamIndex(av.getStreamIndex());
+			packet.setFormat(av.getFormat());
+			packet.setEOM(isEOM);
 			packet.setKeyFrame(isKey);
 			packet.setData(raw);
-			packet.setFormat(Constants.FORMATS.H264_RTP);
 			packet.setPts(prePES.pts);
 			packet.setCompositionTime(compositeTime);
 			packet.setTimeUnit(AVTimeUnit.MILLISECONDS_90);
-			packet.setPosition(prePES.pos);
+			packet.setSequenceNumber(prePES.pos);
+
+			if (null != sps && null != pps) {
+				ByteBuffer buf = ByteBuffer.allocate(sps.limit() + pps.limit() + 2 * START_CODE.length);
+				
+				buf.put(START_CODE);
+				buf.put(sps);
+				buf.put(START_CODE);
+				buf.put(pps);
+				buf.flip();
+				packet.setExtra(buf);
+			}
 
 			out.add(packet);
 			prePES = null;
@@ -85,7 +105,7 @@ public class H264Visitor implements PESVistor {
 	}
 
 	@Override
-	public void visit(PESPacket newPES, List<AVPacket> out) {
+	public void visit(AVStream av, PESPacket newPES, Collection<AVPacket> out) {
 		ByteBuffer data = newPES.data;
 		if (data.remaining() < 4) {
 			LOGGER.warn("H264.Length too short");
@@ -93,7 +113,7 @@ public class H264Visitor implements PESVistor {
 		}
 
 		if (null != prePES && startWithNewNal(data.duplicate())) {
-			flush(out);
+			flush(av, out);
 		}
 
 		if (null != prePES) {

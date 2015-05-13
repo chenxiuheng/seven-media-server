@@ -7,15 +7,18 @@ import javax.media.Format;
 import javax.media.format.AudioFormat;
 import javax.media.format.VideoFormat;
 
+import org.apache.commons.lang.time.DateFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public abstract class AVStream {
+public class AVStream {
+	private static final Format FORMAT_UNKNOWN = new Format("UNKNOWN");
+
 	private static final Logger logger = LoggerFactory.getLogger(AVStream.class);
 	
 	public static final int UNKNOWN = -1;
-	private Format format;
+	private Format format = FORMAT_UNKNOWN;
 	private int frameRate = UNKNOWN;
 	protected AVStreamExtra extra;
 	protected int streamIndex;
@@ -50,9 +53,10 @@ public abstract class AVStream {
 	 */
 	protected long lastPts = UNKNOWN;
 	
-	protected AVStream(AtomicLong sysClock) {
+	public AVStream(AtomicLong sysClock, int streamIndex) {
 		this.sysClock = sysClock;
 		this.lastClock = sysClock.get();
+		this.streamIndex = streamIndex;
 	}
 
 	public void syncTimestamp(AVPacket packet) {
@@ -162,5 +166,21 @@ public abstract class AVStream {
 	
 	public Format getFormat() {
 		return format;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder();
+		
+		buf.append("AVStream#").append(streamIndex);
+		
+		buf.append(" ");
+		buf.append(format);
+		
+		if (lastPts != UNKNOWN) {
+			buf.append(" last_pts=").append(DateFormatUtils.format(lastPts, "HH:mm:ss,SSS"));
+		}
+		
+		return buf.toString();
 	}
 }

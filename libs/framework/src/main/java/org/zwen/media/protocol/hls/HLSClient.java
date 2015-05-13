@@ -6,15 +6,15 @@ import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.channels.Channels;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.media.format.AudioFormat;
-import javax.media.format.VideoFormat;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
@@ -26,8 +26,8 @@ import org.apache.commons.lang.StringUtils;
 import org.jcodec.containers.mps.MTSUtils.StreamType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwen.media.AVPacket;
-import org.zwen.media.AVStreamDispatcher;
+import org.zwen.media.AVDispatcher;
+import org.zwen.media.AVStream;
 import org.zwen.media.Constants;
 import org.zwen.media.Threads;
 import org.zwen.media.URLUtils;
@@ -37,7 +37,7 @@ import org.zwen.media.file.mts.PESVistor;
 import org.zwen.media.file.mts.vistor.H264Visitor;
 
 
-public class HLSClient extends AVStreamDispatcher implements Closeable {
+public class HLSClient extends AVDispatcher implements Closeable {
 	private final static Logger LOGGER = LoggerFactory.getLogger(HLSClient.class);
 	
 	private boolean isClosed;
@@ -113,7 +113,7 @@ public class HLSClient extends AVStreamDispatcher implements Closeable {
 		}
 	}
 	
-	private void readMTS(String url) throws HttpException, IOException {
+	private boolean readMTS(String url) throws HttpException, IOException {
 		GetMethod get = new GetMethod(url);
 		int status = client.executeMethod(get);
 		LOGGER.info("status = {}, {}", status, url);
@@ -128,29 +128,36 @@ public class HLSClient extends AVStreamDispatcher implements Closeable {
 		InputStream in = get.getResponseBodyAsStream();
 		final MTSReader reader = new MTSReader(Channels.newChannel(pipedIn), visitors);
 		
-		Threads.submit(new Runnable() {
-			private List<AVPacket> pkts = new ArrayList<AVPacket>();
+		AVStream[] streams = reader.getAvstream();
+		
+		Future<Boolean> future = Threads.submit(new Callable<Boolean>() {
+			
 			@Override
-			public void run() {
-				try {
-					while (-1 != reader.readNextMPEGPacket(pkts)) {
-						if (pkts.isEmpty()) {
-							continue;
-						}
-						
-						AVPacket packet = pkts.remove(0);
-						System.out.println(packet);
-					}
-					;
-					reader.flush(pkts);
-				} catch (IOException e) {
-					e.printStackTrace();
+			public Boolean call() throws Exception {
+				while (-1 != reader.read(HLSClient.this)) {
 				}
+				;
+				reader.flush(HLSClient.this);
+				
+				return null;
 			}
 		});
 		
-		IOUtils.copy(in, pipedOut);
+		// wait
+		try {
+			Boolean rst = future.get();
+			
+			return null != rst ? rst : false;
+		} catch (ExecutionException e) {
+			LOGGER.warn("Fail Download " + url, e.getCause());
+		} catch (Exception e) {
+			LOGGER.warn("Fail Download " + url, e);
+		} finally {
+			IOUtils.copy(in, pipedOut);
+		}
+		return false;
 	}
+	
 	
 	/**
 	 * make sure the response status code is 200

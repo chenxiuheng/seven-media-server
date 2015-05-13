@@ -1,5 +1,6 @@
 package org.zwen.media.file.mts;
 
+import java.util.Collection;
 import java.util.List;
 
 import javax.media.Format;
@@ -7,6 +8,7 @@ import javax.media.Format;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jcodec.containers.mps.MPSDemuxer.PESPacket;
 import org.zwen.media.AVPacket;
+import org.zwen.media.AVStream;
 import org.zwen.media.AVTimeUnit;
 
 public class DefaultPESVisitor implements PESVistor {
@@ -17,8 +19,8 @@ public class DefaultPESVisitor implements PESVistor {
 	}
 	
 	@Override
-	public void visit(PESPacket pes, List<AVPacket> out) {
-		AVPacket packet = new AVPacket();
+	public void visit(AVStream av, PESPacket pes, Collection<AVPacket> out) {
+		AVPacket packet = new AVPacket(av);
 		
 		// the decode time before present picture
 		long compositeTime = 0;
@@ -32,13 +34,13 @@ public class DefaultPESVisitor implements PESVistor {
 		packet.setFormat(format);
 		packet.setPts(pes.pts);
 		packet.setTimeUnit(AVTimeUnit.MILLISECONDS_90);
-		packet.setPosition(pes.pos);
+		packet.setSequenceNumber(pes.pos);
 		
 		out.add(packet);
 	}
 	
 	@Override
-	public void flush(List<AVPacket> out) {
+	public void flush(AVStream av, Collection<AVPacket> out) {
 		
 	}
 

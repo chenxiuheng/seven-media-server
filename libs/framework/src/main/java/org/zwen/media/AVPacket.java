@@ -9,13 +9,15 @@ import org.apache.commons.lang.time.DateFormatUtils;
 
 public class AVPacket {
 	private int streamIndex;
-	private long position;
 	private Buffer buffer;
 	private long compositionTime = AVStream.UNKNOWN;
 	private AVTimeUnit timeUnit;
 
-	public AVPacket() {
+	public AVPacket(AVStream stream) {
 		this(new Buffer());
+		
+		setFormat(stream.getFormat());
+		setStreamIndex(stream.getStreamIndex());
 	}
 
 	public AVPacket(Buffer buf) {
@@ -53,7 +55,14 @@ public class AVPacket {
 			buffer.setFlags(buffer.getFlags() & ~Buffer.FLAG_KEY_FRAME);
 		}
 	}
-
+	public void setEOM(boolean isEOM) {
+		if (isEOM) {
+			buffer.setFlags(buffer.getFlags() | Buffer.FLAG_EOM);
+		} else {
+			buffer.setFlags(buffer.getFlags() & ~Buffer.FLAG_EOM);
+		}
+	}
+	
 	public void setDiscard(boolean discard) {
 		buffer.setDiscard(discard);
 	}
@@ -62,6 +71,14 @@ public class AVPacket {
 		return buffer.isDiscard();
 	}
 
+	public void setExtra(ByteBuffer buf) {
+		buffer.setHeader(buf);
+	}
+	
+	public ByteBuffer getExtra() {
+		return (ByteBuffer)buffer.getHeader();
+	}
+	
 	public ByteBuffer getData() {
 		if (null == buffer.getData()) {
 			return null;
@@ -144,13 +161,14 @@ public class AVPacket {
 		this.streamIndex = streamIndex;
 	}
 
-	public void setPosition(long packetIndex) {
-		this.position = packetIndex;
+	public void setSequenceNumber(long packetIndex) {
+		buffer.setSequenceNumber(packetIndex);
 	}
 	
-	public long getPosition() {
-		return position;
+	public long getSequenceNumber() {
+		return buffer.getSequenceNumber();
 	}
+
 	
 	@Override
 	public String toString() {
@@ -174,7 +192,7 @@ public class AVPacket {
 		if (null != getTimeUnit()) {
 			long ts = getPts(AVTimeUnit.MILLISECONDS);
 			buf.append(", pts=").append(
-					DateFormatUtils.formatUTC(ts, "HH:mm:ss.SSS"));
+					DateFormatUtils.formatUTC(ts, "HH:mm:ss,SSS"));
 		} 
 
 		
@@ -182,7 +200,7 @@ public class AVPacket {
 		buf.append("size=").append(getLength());
 
 		buf.append(", ");
-		buf.append("pos=").append(position);
+		buf.append("pos=").append(getSequenceNumber());
 		
 		buf.append(", t=").append(getPts());
 		
@@ -193,4 +211,6 @@ public class AVPacket {
 
 		return buf.toString();
 	}
+
+
 }

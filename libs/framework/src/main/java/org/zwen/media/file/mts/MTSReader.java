@@ -7,60 +7,95 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.media.format.AudioFormat;
 import javax.media.format.VideoFormat;
 
+import org.jcodec.common.logging.Logger;
 import org.jcodec.containers.mps.MTSDemuxer;
 import org.jcodec.containers.mps.MTSDemuxer.MTSPacket;
 import org.jcodec.containers.mps.MTSUtils.StreamType;
 import org.jcodec.containers.mps.psi.PATSection;
 import org.jcodec.containers.mps.psi.PMTSection;
 import org.jcodec.containers.mps.psi.PMTSection.PMTStream;
+import org.slf4j.LoggerFactory;
+import org.zwen.media.AVDispatcher;
 import org.zwen.media.AVPacket;
+import org.zwen.media.AVStream;
 import org.zwen.media.Constants;
 import org.zwen.media.file.CountableByteChannel;
+import org.zwen.media.file.mts.vistor.H264Visitor;
 
 public class MTSReader implements Closeable {
-	private ByteBuffer startCode = ByteBuffer.allocate(1);
+	private static org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MTSReader.class);
+	
+	private static final Comparator<? super AVPacket> COMPARATOR = new Comparator<AVPacket>() {
+		@Override
+		public int compare(AVPacket pkt1, AVPacket pkt2) {
+			long a = pkt1.getSequenceNumber();
+            long b = pkt2.getSequenceNumber();
+
+			if (a == b)
+				return 0;
+			else if (a > b) {
+				return 1;
+			} else // a < b
+			{
+				return -1;
+			}
+		}
+	};
+
 	
 	// position of MTS start code
+	private ByteBuffer startCode = ByteBuffer.allocate(1);
 	private long position = 0;
+	private boolean closed;
 	
 	final CountableByteChannel ch;
-
+	final AtomicLong sysClock = new AtomicLong(300);
+	
 	// pat
 	private HashSet<Integer> patPrograms = new HashSet<Integer>();
 
 	// pmt
-	private HashMap<Integer, PMTStream> pmtStreams = new HashMap<Integer, PMTStream>();
+	private int pmt;
 
 	// pes streams
-	private Map<StreamType, PES> pesStreams = new HashMap<StreamType, PES>();
+	private Map<StreamType, PESVistor> visitors = Collections.emptyMap();
+	private PES[] pesStreams;
 
+	private int bufferLength = 8;
+	private TreeSet<AVPacket> buffers = new TreeSet<AVPacket>(COMPARATOR);
+	
 	public MTSReader(ReadableByteChannel src, Map<StreamType, PESVistor> visitors)  {
 		ch = new CountableByteChannel(src);
 		
-		AtomicLong index = new AtomicLong();
-		for (Entry<StreamType, PESVistor> entry : visitors.entrySet()) {
-			pesStreams.put(entry.getKey(), new PES(index, entry.getValue()));
-		}
+		this.visitors = visitors;
 	}
 
-	public int readNextMPEGPacket(List<AVPacket> out) throws IOException {
+	public AVStream[] getAvstream() {
+		return null;
+	}
+
+	
+	public int read(AVDispatcher dispatcher) throws IOException {
 		int pid;
 		boolean payloadStart;
+		boolean foundMPEGPacket = false;
 
 		MTSPacket packet = null;
 		ByteBuffer buffer = ByteBuffer.allocate(188);
 
-		while (null != (packet = readNextMTS(buffer))) {
+		while (!foundMPEGPacket && null != (packet = readNextMTS(buffer))) {
 			pid = packet.pid;
 			payloadStart = packet.payloadStart;
 
@@ -81,34 +116,100 @@ public class MTSReader implements Closeable {
 				PMTSection pmt = PMTSection.parse(packet.payload);
 				PMTStream[] streams = pmt.getStreams();
 
-				pmtStreams.clear();
-				for (int i = 0; i < streams.length; i++) {
-					pmtStreams.put(streams[i].getPid(), streams[i]);
+				
+				if (this.pmt != pid) {
+					pesStreams = new PES[streams.length];
+					AVStream[] avs = new AVStream[streams.length];
+					for (int i = 0; i < streams.length; i++) {
+						pid = streams[i].getPid();
+						StreamType streamType = streams[i].getStreamType();
+						AVStream av = new AVStream(sysClock, i);
+						
+						switch (streamType) {
+						case AUDIO_AAC_ADTS:
+							av.setFormat(Constants.FORMATS.AAC_ADTS);
+							break;
+						case VIDEO_H264:
+							av.setFormat(Constants.FORMATS.H264);
+							break;
+						default:
+							if (streamType.isVideo()) {
+								av.setFormat(new VideoFormat(streamType.name()));
+							} else if (streamType.isAudio()) {
+								av.setFormat(new AudioFormat(streamType.name()));
+							}
+							break;
+						};
+
+						avs[i] = av;
+						pesStreams[i] = new PES(pid, visitors.get(streamType), av);
+					}
+					
+					dispatcher.fireSetup(avs);
 				}
 			}
 
 			// stream
-			else if (pmtStreams.containsKey(pid)) {
-				PMTStream stream = pmtStreams.get(pid);
-				PES pes = pesStreams.get(stream.getStreamType());
+			else  if (null != pesStreams){
+				boolean foundIt = false;
+				for (int i = 0; i < pesStreams.length; i++) {
+					PES pes = pesStreams[i];
+					if (pes.pid == pid) {
+						foundIt = true;
+						ByteBuffer seg = packet.payload;
+						if (payloadStart) {
+							pes.readPESHeader(position, seg, buffers);
+						} else {
+							pes.append(seg);
+						}
+						
+						int numPkts = dispatch(dispatcher, bufferLength);
+						if (numPkts > 0) {
+							foundMPEGPacket = true;
+						}
+					}
+				}
 				
-				ByteBuffer seg = packet.payload;
-				if (payloadStart) {
-					pes.readPESHeader(position, seg, out);
-					return 1;
-				} else {
-					pes.append(seg);
+				if (!foundIt) {
+					LOGGER.warn("NOT FOUND PES[{}]", pid);
 				}
 			}
 		}
 		
-		return -1;
+		if (foundMPEGPacket) {
+			return 1;
+		} else if (!foundMPEGPacket && !closed) {
+			closed = true;
+			return flush(dispatcher);
+		} else {
+			return -1;
+		}
 	}
 
-	public void flush(List<AVPacket> out) {
-		for (PES pes : pesStreams.values()) {
-			pes.flush(out);
+	public int flush(AVDispatcher dispatcher) {
+		for (PES pes : pesStreams) {
+			pes.flush(buffers);
 		}
+		
+		return dispatch(dispatcher, 0);
+	}
+	
+	private int dispatch(AVDispatcher dispatcher, int minBuffer) {
+		int numPkt = 0;
+		while(buffers.size() > minBuffer) {
+			AVPacket pkt = buffers.pollFirst();
+			AVStream stream = pesStreams[pkt.getStreamIndex()].stream;
+			
+			
+			if (!stream.getFormat().equals(pkt.getFormat())) {
+				LOGGER.error("AVStream[{}] with AVPacket NOT SAME Format", stream.getFormat(), pkt.getFormat());
+			}
+			
+			dispatcher.firePacket(stream, pkt);
+			numPkt ++;
+		}
+		
+		return numPkt;
 	}
 	
 	private MTSPacket readNextMTS(ByteBuffer buffer) throws IOException {
@@ -149,10 +250,12 @@ public class MTSReader implements Closeable {
 
 		Map<StreamType, PESVistor> vistor = new HashMap<StreamType, PESVistor>();
 		vistor.put(StreamType.AUDIO_AAC_ADTS, new DefaultPESVisitor(new AudioFormat(Constants.AAC_ADTS)));
-		vistor.put(StreamType.VIDEO_H264, new DefaultPESVisitor(new VideoFormat(Constants.H264_RTP)));
+		vistor.put(StreamType.VIDEO_H264, new H264Visitor());
 		MTSReader client = new MTSReader(ch, vistor);
 		List<AVPacket> out = new ArrayList<AVPacket>();
-		while (-1 != client.readNextMPEGPacket(out)) {
+		
+		AVDispatcher dispatcher = new AVDispatcher();
+		while (-1 != client.read(dispatcher)) {
 			while(!out.isEmpty()) {
 				AVPacket av = out.remove(0);
 				System.out.println(av);

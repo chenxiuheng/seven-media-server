@@ -1,12 +1,13 @@
 package org.zwen.media.file.mts;
 
-import java.util.List;
+import java.util.Collection;
 
 import org.jcodec.containers.mps.MPSDemuxer.PESPacket;
 import org.zwen.media.AVPacket;
+import org.zwen.media.AVStream;
 
 public interface PESVistor {
-	void visit(PESPacket pes, List<AVPacket> out);
+	void visit(AVStream av, PESPacket pes, Collection<AVPacket> out);
 	
-	void flush(List<AVPacket> out);
+	void flush(AVStream av, Collection<AVPacket> out);
 }
