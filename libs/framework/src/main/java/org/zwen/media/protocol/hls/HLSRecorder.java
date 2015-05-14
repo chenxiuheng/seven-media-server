@@ -220,46 +220,6 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 		}
 	}
 
-	private boolean readMTS(String url) throws HttpException, IOException {
-		GetMethod get = new GetMethod(url);
-		int status = client.executeMethod(get);
-		LOGGER.info("status = {}, {}", status, url);
-		ensure200(status, url);
-
-		PipedOutputStream pipedOut = new PipedOutputStream();
-		PipedInputStream pipedIn = new PipedInputStream(pipedOut);
-
-		InputStream in = get.getResponseBodyAsStream();
-		final MTSReader reader = new MTSReader(Channels.newChannel(pipedIn),
-				clock);
-
-		Future<Boolean> future = Threads.submit(new Callable<Boolean>() {
-
-			@Override
-			public Boolean call() throws Exception {
-				while (-1 != reader.read(HLSRecorder.this)) {
-				}
-				;
-				reader.flush(HLSRecorder.this);
-
-				return null;
-			}
-		});
-
-		// wait
-		try {
-			Boolean rst = future.get();
-
-			return null != rst ? rst : false;
-		} catch (ExecutionException e) {
-			LOGGER.warn("Fail Download " + url, e.getCause());
-		} catch (Exception e) {
-			LOGGER.warn("Fail Download " + url, e);
-		} finally {
-			IOUtils.copy(in, pipedOut);
-		}
-		return false;
-	}
 
 	/**
 	 * make sure the response status code is 200
