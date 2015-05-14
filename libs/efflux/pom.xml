@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.zwen.media</groupId>
 		<artifactId>libs</artifactId>
-		<version>0.0.1-SNAPSHOT</version>
+		<version>0.1</version>
 	</parent>
 
 	<artifactId>efflux</artifactId>
@@ -87,7 +87,7 @@
 				</configuration>
 			</plugin>
 
-			<!-- tests -->
+			<!-- tests 
 			<plugin>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
@@ -98,63 +98,11 @@
 					</excludes>
 				</configuration>
 			</plugin>
+			-->
 
-			<!-- javadoc generation -->
-			<plugin>
-				<artifactId>maven-javadoc-plugin</artifactId>
-				<version>2.7</version>
-				<executions>
-					<execution>
-						<id>generate-javadoc</id>
-						<phase>package</phase>
-						<goals>
-							<goal>javadoc</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<doclet>org.jboss.apiviz.APIviz</doclet>
-					<docletArtifact>
-						<groupId>org.jboss.apiviz</groupId>
-						<artifactId>apiviz</artifactId>
-						<version>1.3.1.GA</version>
-					</docletArtifact>
-					<attach>false</attach>
-					<level>public</level>
-					<stylesheetfile>${basedir}/src/javadoc/stylesheet.css</stylesheetfile>
-					<javadocDirectory>${basedir}/src/javadoc/</javadocDirectory>
-					<docfilessubdirs>true</docfilessubdirs>
-					<useStandardDocletOptions>true</useStandardDocletOptions>
-					<outputDirectory>${project.build.directory}/api</outputDirectory>
-					<reportOutputDirectory>${project.build.directory}/api</reportOutputDirectory>
-					<destDir>api</destDir>
-					<charset>UTF-8</charset>
-					<docencoding>UTF-8</docencoding>
-					<breakiterator>true</breakiterator>
-					<version>true</version>
-					<author>true</author>
-					<keywords>true</keywords>
-					<overview>${basedir}/src/javadoc/overview.html</overview>
-					<doctitle>${project.name} API Reference (${project.version})</doctitle>
-					<windowtitle>${project.name} API Reference (${project.version)</windowtitle>
-					<additionalparam>
-						-link http://java.sun.com/javase/6/docs/api/
-						-link
-						http://docs.jboss.org/netty/3.2/api/
+			
 
-						-sourceclasspath
-						${project.build.outputDirectory}
-						-nopackagediagram
-          </additionalparam>
-					<encoding>UTF-8</encoding>
-					<locale>en_GB</locale>
-					<excludePackageNames>
-						${project.groupId}.util*:org.jboss*
-          </excludePackageNames>
-				</configuration>
-			</plugin>
-
-			<!-- xref generation -->
+			<!-- xref generation 
 			<plugin>
 				<artifactId>maven-jxr-plugin</artifactId>
 				<executions>
@@ -178,27 +126,11 @@
 					<lineLength>120</lineLength>
 				</configuration>
 			</plugin>
+			-->
 
-			<!-- attach sources -->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-source-plugin</artifactId>
-				<version>2.1.1</version>
-				<executions>
-					<execution>
-						<id>attach-source</id>
-						<phase>package</phase>
-						<goals>
-							<goal>jar</goal>
-						</goals>
-						<configuration>
-							<attach>true</attach>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
+			
 
-			<!-- package building -->
+			<!-- package building-->
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<executions>
@@ -219,8 +151,8 @@
 					<tarLongFileMode>gnu</tarLongFileMode>
 				</configuration>
 			</plugin>
-
-			<!-- IDEA integration -->
+ 
+			<!-- IDEA integration
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-idea-plugin</artifactId>
@@ -229,7 +161,7 @@
 					<downloadSources>true</downloadSources>
 					<jdkLevel>1.6</jdkLevel>
 				</configuration>
-			</plugin>
+			</plugin> -->
 		</plugins>
 	</build>
 </project>
