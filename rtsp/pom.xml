@@ -5,14 +5,14 @@
 	<parent>
 		<groupId>org.zwen.media</groupId>
 		<artifactId>seven-media-server</artifactId>
-		<version>0.0.1-SNAPSHOT</version>
+		<version>0.1</version>
 	</parent>
-	<groupId>org.zwen.media.server</groupId>
+	<groupId>org.zwen.media.protocol</groupId>
 	<artifactId>rtsp</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<name>rtsp</name>
+	<version>0.1</version>
 	<packaging>pom</packaging>
 	<modules>
-		<module>efflux</module>
 		<module>rtsp-client</module>
 	</modules>
 </project>
