@@ -138,17 +138,21 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 
 	private String readM3U8(String url) throws IOException, HttpException {
 		HttpMethod get = new GetMethod(url);
-		int status = client.executeMethod(get);
-		LOGGER.info("status = {}, {}", status, url);
-		ensure200(status, url);
+		try {
+			int status = client.executeMethod(get);
+			LOGGER.info("status = {}, {}", status, url);
+			ensure200(status, url);
 
-		String m3u8 = get.getResponseBodyAsString();
-		if (!isM3U8(m3u8)) {
-			throw new IllegalArgumentException("Not M3U8" + m3u8);
+			String m3u8 = get.getResponseBodyAsString();
+			if (!isM3U8(m3u8)) {
+				throw new IllegalArgumentException("Not M3U8" + m3u8);
+			}
+
+			LOGGER.info("\n{}", m3u8);
+			return m3u8;
+		} finally {
+			get.releaseConnection();
 		}
-
-		LOGGER.info("\n{}", m3u8);
-		return m3u8;
 	}
 
 	public boolean hasNextTs() {
