@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.channels.Channels;
+import java.nio.channels.GatheringByteChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -33,9 +34,12 @@ import org.apache.commons.lang.time.DateFormatUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVDispatcher;
+import org.zwen.media.AVWriter;
 import org.zwen.media.SystemClock;
 import org.zwen.media.Threads;
 import org.zwen.media.URLUtils;
+import org.zwen.media.file.AVDataSink;
+import org.zwen.media.file.flv.FlvWriter;
 import org.zwen.media.file.mts.MTSReader;
 
 public class HLSRecorder extends AVDispatcher implements Closeable {
@@ -75,6 +79,32 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 		tsUrlItr = tsUrls.iterator();
 	}
 
+	public static void record(String hlsURL,  GatheringByteChannel out, File tempDir) throws IOException {
+		if (!tempDir.isDirectory()) {
+			throw new IllegalArgumentException("Its NOT a DIRECTORY");
+		}
+		
+		HLSRecorder recorder = null;
+		AVWriter writer = null;
+		try {
+			recorder = new HLSRecorder(hlsURL, tempDir);
+			writer = new FlvWriter(out);
+			AVDataSink sink = new AVDataSink(writer);
+			recorder.addListener(sink);
+
+			recorder.connect();
+			while (!sink.isClosed() && recorder.hasNextTs()) {
+				recorder.readNext();
+			}
+
+			recorder.close();
+			sink.close();
+		} finally {
+			IOUtils.closeQuietly(recorder);
+			IOUtils.closeQuietly(writer);
+		}
+	}
+	
 	public void connect() throws IOException {
 		String url = this.url;
 		String m3u8 = readM3U8(url);
