@@ -25,7 +25,7 @@ import org.zwen.media.Constants;
 import org.zwen.media.codec.audio.aac.AACExtra;
 import org.zwen.media.codec.video.h264.H264Extra;
 
-import com.flazr.rtmp.message.MetadataAmf0;
+import com.flazr.amf.Amf0Value;
 
 public class FlvWriter implements AVWriter {
 	private static final Logger logger = LoggerFactory
@@ -90,7 +90,10 @@ public class FlvWriter implements AVWriter {
 			}
 		}
 		
-		ChannelBuffer onMetaData = new MetadataAmf0("onMetaData", map).encode();
+		ChannelBuffer onMetaData = ChannelBuffers.dynamicBuffer();
+        Amf0Value.encode(onMetaData, "onMetaData");
+        Amf0Value.encode(onMetaData, map);
+        
 		dataSize = onMetaData.readableBytes();
 		buffer.writeByte(0x18); // script type
 		buffer.writeMedium(dataSize);
