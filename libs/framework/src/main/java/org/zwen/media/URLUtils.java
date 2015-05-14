@@ -3,8 +3,6 @@ package org.zwen.media;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.io.FilenameUtils;
-
 public class URLUtils {
 	public static String getAbsoluteUrl(String base, String path) {
 		if (null == path) {
