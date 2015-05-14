@@ -11,6 +11,7 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.GatheringByteChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -177,9 +178,10 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 		/*** download success, read it */
 		if (times < maxTimes) {
 			MTSReader reader = null;
+			ReadableByteChannel ch = null;
 			try {
-				reader = new MTSReader(new FileInputStream(temp).getChannel(),
-					clock);
+				ch = new FileInputStream(temp).getChannel();
+				reader = new MTSReader(ch, clock);
 				
 				while (-1 != reader.read(this)) {
 				}
@@ -189,6 +191,7 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 				LOGGER.error("Can't Decode read {}", url);
 				LOGGER.info(e.getMessage(), e);
 			} finally {
+				IOUtils.closeQuietly(ch);
 				IOUtils.closeQuietly(reader);
 			}
 		}
@@ -217,6 +220,8 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 			IOUtils.closeQuietly(in);
 			IOUtils.closeQuietly(out);
 			get.releaseConnection();
+			
+			dst.delete();
 		}
 	}
 
