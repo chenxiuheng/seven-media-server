@@ -36,7 +36,7 @@ public class AVStream {
 	private int numChannels = UNKNOWN;
 
 	private Format format = FORMAT_UNKNOWN;
-	protected AVStreamExtra extra;
+	private AVStreamExtra extra;
 	private int height = UNKNOWN;
 	private int width = UNKNOWN;
 	
