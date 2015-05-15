@@ -72,8 +72,6 @@ public class H264Visitor implements PESVistor {
 			
 			
 			AVPacket packet = new AVPacket(av);
-			packet.setStreamIndex(av.getStreamIndex());
-			packet.setFormat(av.getFormat());
 			packet.setEOM(isEOM);
 			packet.setKeyFrame(isKey);
 			packet.setData(raw);

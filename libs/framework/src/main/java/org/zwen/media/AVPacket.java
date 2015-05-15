@@ -16,8 +16,8 @@ public class AVPacket {
 	public AVPacket(AVStream stream) {
 		this(new Buffer());
 		
-		setFormat(stream.getFormat());
-		setStreamIndex(stream.getStreamIndex());
+		buffer.setFormat(stream.getFormat());
+		this.streamIndex = stream.getStreamIndex();
 	}
 
 	public AVPacket(Buffer buf) {
@@ -44,9 +44,6 @@ public class AVPacket {
 		return buffer.getFormat();
 	}
 
-	public void setFormat(Format format) {
-		buffer.setFormat(format);
-	}
 
 	public boolean isKeyFrame() {
 		return (buffer.getFlags() & Buffer.FLAG_KEY_FRAME) > 0;
@@ -165,9 +162,7 @@ public class AVPacket {
 		return streamIndex;
 	}
 
-	public void setStreamIndex(int streamIndex) {
-		this.streamIndex = streamIndex;
-	}
+	
 
 	public void setSequenceNumber(long packetIndex) {
 		buffer.setSequenceNumber(packetIndex);

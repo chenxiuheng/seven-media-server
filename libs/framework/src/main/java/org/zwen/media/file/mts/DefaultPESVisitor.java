@@ -31,7 +31,6 @@ public class DefaultPESVisitor implements PESVistor {
 		packet.setCompositionTime(compositeTime);
 		
 		packet.setData(pes.data.array());
-		packet.setFormat(format);
 		packet.setPts(pes.pts);
 		packet.setTimeUnit(AVTimeUnit.MILLISECONDS_90);
 		packet.setSequenceNumber(pes.pos);
