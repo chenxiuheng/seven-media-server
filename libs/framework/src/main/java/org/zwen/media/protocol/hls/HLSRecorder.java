@@ -167,7 +167,6 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 		String url = tsUrlItr.next();
 		for (; times < maxTimes; times++) {
 			try {
-				temp.delete();
 				saveAs(url, temp);
 				break;
 			} catch (IOException e) {
@@ -224,8 +223,6 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 			IOUtils.closeQuietly(in);
 			IOUtils.closeQuietly(out);
 			get.releaseConnection();
-			
-			dst.delete();
 		}
 	}
 
