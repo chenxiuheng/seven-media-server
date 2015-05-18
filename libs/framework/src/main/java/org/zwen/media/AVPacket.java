@@ -3,26 +3,20 @@ package org.zwen.media;
 import java.nio.ByteBuffer;
 
 import javax.media.Buffer;
-import javax.media.Format;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
-public class AVPacket {
+public class AVPacket extends Buffer {
 	private int streamIndex;
-	private Buffer buffer;
 	private long compositionTime = 0;
 	private AVTimeUnit timeUnit;
 
 	public AVPacket(AVStream av) {
-		this(new Buffer());
-		
-		buffer.setFormat(av.getFormat());
+		this.setFormat(av.getFormat());
 		this.streamIndex = av.getStreamIndex();
+		this.timeUnit = av.getTimeUnit();
 	}
 
-	public AVPacket(Buffer buf) {
-		this.buffer = buf;
-	}
 
 	public void setCompositionTime(long compositionTime) {
 		this.compositionTime = compositionTime;
@@ -40,58 +34,53 @@ public class AVPacket {
 		return timeUnit;
 	}
 
-	public Format getFormat() {
-		return buffer.getFormat();
-	}
 
 
 	public boolean isKeyFrame() {
-		return (buffer.getFlags() & Buffer.FLAG_KEY_FRAME) > 0;
+		return (this.getFlags() & Buffer.FLAG_KEY_FRAME) > 0;
 	}
 	
 	public void setKeyFrame(boolean isKey) {
 		if (isKey) {
-			buffer.setFlags(buffer.getFlags() | Buffer.FLAG_KEY_FRAME);
+			this.setFlags(this.getFlags() | Buffer.FLAG_KEY_FRAME);
 		} else {
-			buffer.setFlags(buffer.getFlags() & ~Buffer.FLAG_KEY_FRAME);
+			this.setFlags(this.getFlags() & ~Buffer.FLAG_KEY_FRAME);
 		}
 	}
 	public void setEOM(boolean isEOM) {
 		if (isEOM) {
-			buffer.setFlags(buffer.getFlags() | Buffer.FLAG_EOM);
+			this.setFlags(this.getFlags() | Buffer.FLAG_EOM);
 		} else {
-			buffer.setFlags(buffer.getFlags() & ~Buffer.FLAG_EOM);
+			this.setFlags(this.getFlags() & ~Buffer.FLAG_EOM);
 		}
 	}
 	
-	public void setDiscard(boolean discard) {
-		buffer.setDiscard(discard);
-	}
-
-	public boolean isDiscard() {
-		return buffer.isDiscard();
-	}
-
 	public void setExtra(ByteBuffer buf) {
-		buffer.setHeader(buf);
+		super.setHeader(buf);
 	}
 	
 	public ByteBuffer getExtra() {
-		return (ByteBuffer)buffer.getHeader();
+		return (ByteBuffer)super.getHeader();
 	}
 	
-	public ByteBuffer getData() {
-		if (null == buffer.getData()) {
-			return null;
+	public ByteBuffer getByteBuffer() {
+		Object rawData = super.getData();
+		if (null == rawData) {
+			return ByteBuffer.allocate(0);
 		}
 
-		ByteBuffer data = (ByteBuffer) buffer.getData();
-		return data;
+		if (rawData instanceof byte[]) {
+			return ByteBuffer.wrap((byte[]) rawData, getOffset(), getLength());
+		} else if (rawData instanceof ByteBuffer) {
+			return (ByteBuffer) rawData;
+		}
+		
+		throw new IllegalArgumentException("Can't convert bytebuffer");
 	}
 
 	public void setData(ByteBuffer data) {
-		this.buffer.setData(data);
-		this.buffer.setLength(data.limit() - data.position());
+		super.setData(data);
+		super.setLength(data.limit() - data.position());
 	}
 	
 	public void setData(byte[] data) {
@@ -103,31 +92,17 @@ public class AVPacket {
 	}
 
 	public void setPts(long timestamp) {
-		buffer.setTimeStamp(timestamp);
+		super.setTimeStamp(timestamp);
 	}
 
 	public void setPts(long timestamp, AVTimeUnit unit) {
-		buffer.setTimeStamp(timeUnit.convert(timestamp, unit));
+		super.setTimeStamp(timeUnit.convert(timestamp, unit));
 	}
 
-	public void setDuration(long duration) {
-		buffer.setDuration(duration);
-	}
-
-	/**
-	 * @param flag
-	 * @see Buffer#setFlags(int)
-	 */
-	public void setFlags(int flag) {
-		buffer.setFlags(flag);
-	}
-
-	public int getFlags() {
-		return buffer.getFlags();
-	}
+	
 
 	public long getPts() {
-		return buffer.getTimeStamp();
+		return this.getTimeStamp();
 	}
 	
 	public long getDts() {
@@ -142,20 +117,8 @@ public class AVPacket {
 		return unit.convert(getPts(), this.timeUnit);
 	}
 
-	public int getLength() {
-		return buffer.getLength();
-	}
-
-	public int getOffset() {
-		return buffer.getOffset();
-	}
-
-	public long getDuration() {
-		return buffer.getDuration();
-	}
-	
 	public long getDuration(AVTimeUnit unit) {
-		return unit.convert(buffer.getDuration(), this.timeUnit);
+		return unit.convert(this.getDuration(), this.timeUnit);
 	}
 
 	public int getStreamIndex() {
@@ -164,13 +127,7 @@ public class AVPacket {
 
 	
 
-	public void setSequenceNumber(long packetIndex) {
-		buffer.setSequenceNumber(packetIndex);
-	}
-	
-	public long getSequenceNumber() {
-		return buffer.getSequenceNumber();
-	}
+
 
 	
 	@Override

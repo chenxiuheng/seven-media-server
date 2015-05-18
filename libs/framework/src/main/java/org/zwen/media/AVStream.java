@@ -34,6 +34,7 @@ public class AVStream {
 	private double frameRate = UNKNOWN;
 	private int sampleRate = UNKNOWN;
 	private int numChannels = UNKNOWN;
+	private AVTimeUnit timeUnit;
 
 	private Format format = FORMAT_UNKNOWN;
 	private AVStreamExtra extra;
@@ -225,6 +226,14 @@ public class AVStream {
 	
 	public Format getFormat() {
 		return format;
+	}
+	
+	public void setTimeUnit(AVTimeUnit timeUnit) {
+		this.timeUnit = timeUnit;
+	}
+	
+	public AVTimeUnit getTimeUnit() {
+		return timeUnit;
 	}
 	
 	@Override

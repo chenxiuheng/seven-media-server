@@ -186,7 +186,7 @@ public class FlvWriter implements AVWriter {
 	}
 
 	public void write(AVStream av, AVPacket frame) throws IOException {
-		logger.warn("{}", frame);
+		//logger.warn("{}", frame);
 		Format vf = frame.getFormat();
 		if (Constants.H264.equalsIgnoreCase(vf.getEncoding())) {
 			writeH264WithStartCode(frame);
@@ -200,7 +200,7 @@ public class FlvWriter implements AVWriter {
 	}
 
 	private void writeH264WithStartCode(AVPacket frame) throws IOException {
-		ByteBuffer data = frame.getData();
+		ByteBuffer data = frame.getByteBuffer();
 		if (data.remaining() > 4 && 1 != data.getInt(data.position())) {
 			logger.warn("H264 Not Start With 0x00 00 00 01");
 			return;
@@ -212,7 +212,7 @@ public class FlvWriter implements AVWriter {
 			dataSize += seg.remaining();
 		}
 
-		ChannelBuffer avc = ChannelBuffers.buffer(11 + frame.getLength() + 4 + 4 + 5);
+		ChannelBuffer avc = ChannelBuffers.buffer(11 + dataSize + 4 + 4 + 5);
 		avc.writeByte(0x09); // video type
 		avc.writeMedium(dataSize); // tag data size
 		
@@ -239,7 +239,7 @@ public class FlvWriter implements AVWriter {
 	}
 
 	private void writeAAC(AVPacket frame) throws IOException {
-		ByteBuffer data = frame.getData();
+		ByteBuffer data = frame.getByteBuffer();
 		int dataSize = 2 + data.remaining();
 		
 		ChannelBuffer aac = ChannelBuffers.buffer(11 + dataSize + 4);
