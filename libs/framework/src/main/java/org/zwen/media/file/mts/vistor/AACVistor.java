@@ -108,8 +108,8 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 			buf.readerIndex(dataStart + aacFrameLength);
 
 			extra.setNumChannels(ch);
-			extra.setSampleRate(AACExtra.AUDIO_SAMPLING_RATES[sr]);
-			extra.setProfile(AACExtra.PROFILES[aot]);
+			extra.setSampleRateIndex(sr);
+			extra.setObjectType(aot + 1);
 
 			samples = (rdb + 1) * 1024;
 			/** samples in the frame */

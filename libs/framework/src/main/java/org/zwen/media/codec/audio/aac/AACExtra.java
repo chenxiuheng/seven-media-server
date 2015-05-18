@@ -25,15 +25,18 @@ public class AACExtra implements AVStreamExtra {
 	public static Profile[] PROFILES = {
 				Profile.MAIN, 
 				Profile.LC, 
-				Profile.OTHER, 
 				Profile.OTHER
 			};
 	
 
 	private int numChannels = 2;
-	private int sampleRate = 44100; // 44100, is the only value supported by flv
-	private Profile profile = Profile.LC;
+	private int sampleRateIndex = 5; // 44100, is the only value supported by flv
+	private int objectType = 2;
 
+	public int getSampleRateIndex() {
+		return sampleRateIndex; // unknown
+	}
+	
 	public int getNumChannels() {
 		return numChannels;
 	}
@@ -43,18 +46,29 @@ public class AACExtra implements AVStreamExtra {
 	}
 
 	public int getSampleRate() {
-		return sampleRate;
+		return AUDIO_SAMPLING_RATES[sampleRateIndex];
+	}
+
+	
+	public void setObjectType(int objectType) {
+		this.objectType = objectType;
+	}
+	
+	public int getObjectType() {
+		return objectType;
+	}
+
+	public void setSampleRateIndex(int sr) {
+		this.sampleRateIndex = sr;
 	}
 
 	public void setSampleRate(int sampleRate) {
-		this.sampleRate = sampleRate;
-	}
-
-	public Profile getProfile() {
-		return profile;
-	}
-
-	public void setProfile(Profile profile) {
-		this.profile = profile;
+		for (int i = 0; i < AUDIO_SAMPLING_RATES.length; i++) {
+			if (AUDIO_SAMPLING_RATES[i] == sampleRate) {
+				setSampleRateIndex(i);
+			}
+		}
+		
+		setSampleRateIndex(13); // unknown
 	}
 }

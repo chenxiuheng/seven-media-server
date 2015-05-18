@@ -11,9 +11,10 @@ public class ByteBuffers {
 			newBuf.put(buf.get());
 		}
 		newBuf.flip();
-		
+
 		return newBuf;
 	}
+
 	public static final ByteBuffer copy(ByteBuffer buf) {
 		if (null == buf) {
 			return null;
@@ -25,17 +26,27 @@ public class ByteBuffers {
 
 		return newBuf;
 	}
-	
+
 	public static final String toString(ByteBuffer buf) {
-		if(null == buf) {
+		if (null == buf) {
 			return "NULL";
 		}
-		
+
 		int position = buf.position();
 		byte[] data = new byte[buf.remaining()];
 		buf.get(data);
 		buf.position(position);
-		
+
 		return new String(Hex.encodeHex(data));
+	}
+
+	public static ByteBuffer decodeHex(String hex) {
+		try {
+			byte[] data = Hex.decodeHex(hex.toCharArray());
+
+			return ByteBuffer.wrap(data);
+		} catch (Exception e) {
+			throw new IllegalArgumentException("error HEX: " + hex);
+		}
 	}
 }

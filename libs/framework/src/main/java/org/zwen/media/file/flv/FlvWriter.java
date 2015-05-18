@@ -14,6 +14,7 @@ import javax.media.format.VideoFormat;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jcodec.codecs.h264.H264Utils;
+import org.jcodec.common.io.BitWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
@@ -50,7 +51,7 @@ public class FlvWriter implements AVWriter {
 			throw new IllegalArgumentException("No Streams Found");
 		}
 
-		ChannelBuffer buffer = ChannelBuffers.buffer(1024);
+		ChannelBuffer buffer = ChannelBuffers.dynamicBuffer(1024);
 
 		int dataSize = 0;
 
@@ -147,18 +148,33 @@ public class FlvWriter implements AVWriter {
 			} else if (extra instanceof AACExtra) {
 				AACExtra aac = (AACExtra)extra;
 				
-				ChannelBuffer data = ChannelBuffers.buffer(4);
+				ByteBuffer aacHeader = ByteBuffer.allocate(4);
+				aacHeader.put((byte)0xAF); // aac, 44100, 2 channels, stereo
+				aacHeader.put((byte)0x00); // aac header
 				
-				data.writeByte(0xAF); // aac, 44100, 2 channels, stereo
-				data.writeByte(0x00); // aac header
+				int objectType = aac.getObjectType();
+				int sampleRateIndex = aac.getSampleRateIndex();
+				int numChannels = aac.getNumChannels();
 				
-				dataSize = data.readableBytes();
+				BitWriter w = new BitWriter(aacHeader);
+				w.writeNBit(objectType, 5);
+				w.writeNBit(sampleRateIndex, 4);
+				w.writeNBit(numChannels, 4);
+				w.writeNBit(0, 1); //frame length - 1024 samples
+				w.writeNBit(0, 1); //does not depend on core coder
+				w.writeNBit(0, 1); //is not extension
+				w.flush();
+				aacHeader.flip();
+				
+				
+				
+				dataSize = aacHeader.remaining();
 				buffer.writeByte(0x08);
-				buffer.writeMedium(data.readableBytes()); // data size
+				buffer.writeMedium(dataSize); // data size
 				buffer.writeInt(0x00); // timestamp
 				buffer.writeMedium(0x00); // stream id
 				
-				buffer.writeBytes(data); // data
+				buffer.writeBytes(aacHeader); // data
 
 				buffer.writeInt(11 + dataSize); // pre tag size
 			} else {
@@ -170,8 +186,9 @@ public class FlvWriter implements AVWriter {
 	}
 
 	public void write(AVStream av, AVPacket frame) throws IOException {
+		logger.warn("{}", frame);
 		Format vf = frame.getFormat();
-		if (Constants.H264.equals(vf.getEncoding())) {
+		if (Constants.H264.equalsIgnoreCase(vf.getEncoding())) {
 			writeH264WithStartCode(frame);
 			return;
 		} else if (Constants.AAC.equalsIgnoreCase(vf.getEncoding())) {

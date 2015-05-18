@@ -13,11 +13,11 @@ public class AVPacket {
 	private long compositionTime = 0;
 	private AVTimeUnit timeUnit;
 
-	public AVPacket(AVStream stream) {
+	public AVPacket(AVStream av) {
 		this(new Buffer());
 		
-		buffer.setFormat(stream.getFormat());
-		this.streamIndex = stream.getStreamIndex();
+		buffer.setFormat(av.getFormat());
+		this.streamIndex = av.getStreamIndex();
 	}
 
 	public AVPacket(Buffer buf) {
