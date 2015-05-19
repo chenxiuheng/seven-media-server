@@ -25,6 +25,7 @@ import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.channel.socket.oio.OioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -111,7 +112,7 @@ public class RtspClientStack implements Closeable {
 		}
 
 		String seqNo = response.headers().get(RtspHeaders.Names.CSEQ);
-		AsynFuture f = futures.remove(seqNo);
+		AsynFuture f = futures.remove(null != seqNo ? seqNo : "");
 		if (null != f) {
 			f.handle(response);
 		} else {
@@ -186,8 +187,8 @@ public class RtspClientStack implements Closeable {
 	}
 
 	private ClientBootstrap getBootstrap(final Executor executor) {
-		final ChannelFactory factory = new NioClientSocketChannelFactory(
-				executor, executor);
+		final ChannelFactory factory = new OioClientSocketChannelFactory(
+				executor);
 		final ClientBootstrap bootstrap = new ClientBootstrap(factory);
 		bootstrap.setPipelineFactory(new ClientPipelineFactory(this));
 		bootstrap.setOption("tcpNoDelay", Boolean.TRUE);

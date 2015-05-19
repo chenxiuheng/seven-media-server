@@ -188,6 +188,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 					RtpReceiver receiver = avstreams[j];
 					if (StringUtils.equalsIgnoreCase(receiver.getControlUrl(), url)) {
 						receiver.setRtpTime(rtptime);
+						receiver.setSeq(seq);
 					}
 				}
 			}

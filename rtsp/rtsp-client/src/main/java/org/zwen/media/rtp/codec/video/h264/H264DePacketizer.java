@@ -133,13 +133,6 @@ public class H264DePacketizer extends AbstractDePacketizer {
 
 				byte[] pps = Base64.decodeBase64(matcher.group(2).getBytes());
 				extra.addPps(ByteBuffer.wrap(pps));
-
-				logger
-						.info("sps.byte[{}] = {}", sps.length, Hex
-								.encodeHex(sps));
-				logger
-						.info("pps.byte[{}] = {}", pps.length, Hex
-								.encodeHex(pps));
 			}
 		}
 		
