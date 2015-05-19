@@ -22,7 +22,7 @@ public class AVStream {
 	/** 25 fps **/
 	private static final int MIN_VIDEO_DIFF = 40 * 90;
 	/** in MPEG TS, the diff is GT 700ms, Player must do sync */
-	private static final int MAX_ASYNC_DIFF = 700 * 90;
+	private static final int MAX_ASYNC_DIFF = 300 * 90;
 
 	private static final Format FORMAT_UNKNOWN = new Format("UNKNOWN");
 
@@ -40,6 +40,8 @@ public class AVStream {
 	private AVStreamExtra extra;
 	private int height = UNKNOWN;
 	private int width = UNKNOWN;
+	
+	protected long max_async_diff = MAX_ASYNC_DIFF;
 	
 	
 	
@@ -79,26 +81,26 @@ public class AVStream {
 	public void syncTimestamp(AVPacket packet) {
 		final long lastClock = this.lastClock;
 		final long lastDiff = this.diff;
-		long pts = packet.getPts(AVTimeUnit.MILLISECONDS_90);
+		long pts = packet.getTimestamp(AVTimeUnit.MILLISECONDS_90);
 		long duration = packet.getDuration(AVTimeUnit.MILLISECONDS_90);
 		
 		if (this.lastPts != UNKNOWN) {
 			long diff = pts - this.lastPts;
-			if (diff < 0 || diff > MAX_ASYNC_DIFF) {
+			if (diff < 0 || diff > max_async_diff) {
 				diff = lastDiff;
 			} 
 
 			long timestamp = sysClock.get();
-			if (!sysClock.isInitialed() || Math.abs(timestamp - (lastClock + diff)) < MAX_ASYNC_DIFF) {
+			if (!sysClock.isInitialed() || Math.abs(timestamp - (lastClock + diff)) < max_async_diff) {
 				sysClock.update(timestamp, Math.max(timestamp, lastClock + diff));
 				
-				packet.setPts(lastClock + diff, AVTimeUnit.MILLISECONDS_90);
+				packet.setTimestamp(lastClock + diff, AVTimeUnit.MILLISECONDS_90);
 				this.diff = diff;
 			} else {
-				packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS_90);
+				packet.setTimestamp(sysClock.get(), AVTimeUnit.MILLISECONDS_90);
 			}
 		} else if (sysClock.isInitialed()){
-			packet.setPts(sysClock.get(), AVTimeUnit.MILLISECONDS_90);
+			packet.setTimestamp(sysClock.get(), AVTimeUnit.MILLISECONDS_90);
 			this.diff = getDefaultTimestampDifferent(duration);
 		} else {
 			this.diff = getDefaultTimestampDifferent(duration);
@@ -107,7 +109,7 @@ public class AVStream {
 		packet.setDuration(packet.getTimeUnit().convert(diff, AVTimeUnit.MILLISECONDS_90));
 		
 		this.lastPts = pts;
-		this.lastClock = packet.getPts(AVTimeUnit.MILLISECONDS_90);
+		this.lastClock = packet.getTimestamp(AVTimeUnit.MILLISECONDS_90);
 		
 		if (logger.isDebugEnabled()) {
 			// logger.debug("set diff = {}, {}", diff, packet);
@@ -115,7 +117,7 @@ public class AVStream {
 	}
 	private long getDefaultTimestampDifferent(long defaultDiff) {
 		long diff = defaultDiff;
-		if (defaultDiff < MAX_ASYNC_DIFF && defaultDiff > 0) {
+		if (defaultDiff < max_async_diff && defaultDiff > 0) {
 			return diff;
 		}
 
@@ -246,7 +248,7 @@ public class AVStream {
 		buf.append(null != format ? format.getEncoding() : "");
 		
 		if (lastPts != UNKNOWN) {
-			buf.append(" last_pts=").append(DateFormatUtils.format(lastPts, "HH:mm:ss,SSS"));
+			buf.append(" last_pts=").append(DateFormatUtils.format(AVTimeUnit.MILLISECONDS.convert(lastPts, timeUnit), "HH:mm:ss,SSS"));
 		}
 		
 		if (format instanceof VideoFormat) {
