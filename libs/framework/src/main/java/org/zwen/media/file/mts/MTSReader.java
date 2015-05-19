@@ -271,8 +271,8 @@ public class MTSReader implements Closeable {
 			long a = pkt1.getSequenceNumber();
 			long b = pkt2.getSequenceNumber();
 
-			long p1 = pkt1.getPts();
-			long p2 = pkt2.getPts();
+			long p1 = pkt1.getTimeStamp();
+			long p2 = pkt2.getTimeStamp();
 			if (p1 != p2) {
 				return p1 < p2 ? -1 : 1;
 			}

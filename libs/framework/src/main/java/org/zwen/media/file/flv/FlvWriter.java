@@ -185,8 +185,7 @@ public class FlvWriter implements AVWriter {
 		buffer.readBytes(out, buffer.readableBytes());
 	}
 
-	public void write(AVStream av, AVPacket frame) throws IOException {
-		//logger.warn("{}", frame);
+	public void write(AVStream av, AVPacket frame) throws IOException {		
 		Format vf = frame.getFormat();
 		if (Constants.H264.equalsIgnoreCase(vf.getEncoding())) {
 			writeH264WithStartCode(frame);
@@ -217,7 +216,7 @@ public class FlvWriter implements AVWriter {
 		avc.writeMedium(dataSize); // tag data size
 		
 		// timestamp
-		long timestamp = frame.getPts(AVTimeUnit.MILLISECONDS);
+		long timestamp = frame.getTimestamp(AVTimeUnit.MILLISECONDS);
 		avc.writeMedium((int)(0xFFFFFF & timestamp));
 		avc.writeByte((int)(0xFF & (timestamp >> 24)));
 
@@ -247,7 +246,7 @@ public class FlvWriter implements AVWriter {
 		aac.writeMedium(dataSize);
 		
 		// timestamp
-		long timestamp = frame.getPts(AVTimeUnit.MILLISECONDS);
+		long timestamp = frame.getTimestamp(AVTimeUnit.MILLISECONDS);
 		aac.writeMedium((int)(0xFFFFFF & timestamp));
 		aac.writeByte((int)(0xFF & (timestamp >> 24)));
 		

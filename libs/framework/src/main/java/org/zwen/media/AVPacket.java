@@ -91,30 +91,22 @@ public class AVPacket extends Buffer {
 		setData(ByteBuffer.wrap(data, offset, length));
 	}
 
-	public void setPts(long timestamp) {
-		super.setTimeStamp(timestamp);
-	}
-
-	public void setPts(long timestamp, AVTimeUnit unit) {
+	public void setTimestamp(long timestamp, AVTimeUnit unit) {
 		super.setTimeStamp(timeUnit.convert(timestamp, unit));
 	}
 
 	
 
-	public long getPts() {
-		return this.getTimeStamp();
+	public long getDecodeTimestamp() {
+		return compositionTime < 0 ? this.getTimeStamp() : this.getTimeStamp() + compositionTime;
 	}
 	
-	public long getDts() {
-		return compositionTime < 0 ? getPts() : getPts() + compositionTime;
-	}
-	
-	public long getDts(AVTimeUnit unit) {
-		return unit.convert(getDts(), this.timeUnit);
+	public long getDecodeTimestamp(AVTimeUnit unit) {
+		return unit.convert(getDecodeTimestamp(), this.timeUnit);
 	}
 
-	public long getPts(AVTimeUnit unit) {
-		return unit.convert(getPts(), this.timeUnit);
+	public long getTimestamp(AVTimeUnit unit) {
+		return unit.convert(this.getTimeStamp(), this.timeUnit);
 	}
 
 	public long getDuration(AVTimeUnit unit) {
@@ -150,7 +142,7 @@ public class AVPacket extends Buffer {
 
 		
 		if (null != getTimeUnit()) {
-			long ts = getPts(AVTimeUnit.MILLISECONDS);
+			long ts = getTimestamp(AVTimeUnit.MILLISECONDS);
 			buf.append(", pts=").append(
 					DateFormatUtils.formatUTC(ts, "HH:mm:ss,SSS"));
 		} 
@@ -162,11 +154,12 @@ public class AVPacket extends Buffer {
 		buf.append(", ");
 		buf.append("pos=").append(getSequenceNumber());
 		
-		buf.append(", t=").append(getPts());
+		buf.append(", t=").append(this.getTimeStamp());
 
-		long duration = getDuration(AVTimeUnit.MILLISECONDS);
-		if (getDuration(AVTimeUnit.MILLISECONDS) > 0){
-			buf.append(", duration=").append(duration).append("ms");
+		long duration = getDuration();
+		if (duration > 0){
+			long formatDur =  getDuration(AVTimeUnit.MILLISECONDS);;
+			buf.append(", duration=").append(duration).append("(").append(formatDur).append("ms)");
 		}
 		
 		if (isDiscard()) {

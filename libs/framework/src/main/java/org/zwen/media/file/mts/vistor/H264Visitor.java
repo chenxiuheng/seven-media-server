@@ -75,7 +75,7 @@ public class H264Visitor implements PESVistor {
 			packet.setEOM(isEOM);
 			packet.setKeyFrame(isKey);
 			packet.setData(raw);
-			packet.setPts(prePES.pts);
+			packet.setTimeStamp(prePES.pts);
 			packet.setCompositionTime(compositeTime);
 			packet.setTimeUnit(AVTimeUnit.MILLISECONDS_90);
 			packet.setSequenceNumber(prePES.pos);

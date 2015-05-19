@@ -132,7 +132,7 @@ public class AACVistor extends DefaultPESVisitor implements PESVistor {
 		av.setExtra(extra);
 
 		packet.setDuration(duration);
-		packet.setPts(pts);
+		packet.setTimeStamp(pts);
 		packet.setSequenceNumber(pos);
 		packet.setTimeUnit(AVTimeUnit.MILLISECONDS_90);
 
