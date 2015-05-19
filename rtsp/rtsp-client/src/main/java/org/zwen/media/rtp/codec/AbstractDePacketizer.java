@@ -4,12 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import javax.media.Buffer;
 import javax.media.PlugIn;
-import javax.sdp.MediaDescription;
-import javax.sdp.SdpException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +22,10 @@ public abstract class AbstractDePacketizer {
 	
 	private Map<Integer, List<byte[]>> caches = new ConcurrentHashMap<Integer, List<byte[]>>();
 	
-	public abstract void setMediaDescription(AVStream av, MediaDescription md) throws SdpException;
+
+	public void init(AVStream av, String fmtpValue) {
+		
+	}
 	
 	final public void depacket(AVStream av, DataPacket pkt, List<AVPacket> out) {
 		if (null == outBuffer) {
@@ -167,4 +167,5 @@ public abstract class AbstractDePacketizer {
      * Padding size for FFmpeg input buffer.
      */
     public static final int FF_INPUT_BUFFER_PADDING_SIZE = 8;
+
 }

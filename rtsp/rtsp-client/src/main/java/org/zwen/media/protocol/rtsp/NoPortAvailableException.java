@@ -18,7 +18,9 @@
 
 package org.zwen.media.protocol.rtsp;
 
-public class NoPortAvailableException extends Exception
+import java.io.IOException;
+
+public class NoPortAvailableException extends IOException
 {
 	static final long serialVersionUID = 0x33DD33DD55L;
 

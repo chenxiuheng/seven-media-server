@@ -2,34 +2,24 @@ package org.zwen.media.protocol.rtsp;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.media.format.AudioFormat;
-import javax.media.format.VideoFormat;
-import javax.sdp.MediaDescription;
-import javax.sdp.SdpException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVDispatcher;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
-import org.zwen.media.AVTimeUnit;
-import org.zwen.media.Constants;
 import org.zwen.media.SystemClock;
-import org.zwen.media.URLUtils;
 import org.zwen.media.rtp.JitterBuffer;
 import org.zwen.media.rtp.codec.AbstractDePacketizer;
-import org.zwen.media.rtp.codec.audio.aac.Mpeg4GenericCodec;
-import org.zwen.media.rtp.codec.video.h264.H264DePacketizer;
 
+import com.biasedbit.efflux.packet.AppDataPacket;
+import com.biasedbit.efflux.packet.CompoundControlPacket;
 import com.biasedbit.efflux.packet.DataPacket;
 import com.biasedbit.efflux.participant.RtpParticipant;
 import com.biasedbit.efflux.participant.RtpParticipantInfo;
 import com.biasedbit.efflux.session.DefaultRtpSession;
 import com.biasedbit.efflux.session.RtpSession;
+import com.biasedbit.efflux.session.RtpSessionControlListener;
 import com.biasedbit.efflux.session.RtpSessionDataListener;
 import com.biasedbit.efflux.session.SingleParticipantSession;
 
@@ -37,20 +27,34 @@ public class RtpReceiver extends AVStream {
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(RtpReceiver.class);
+	
 	private int payloadType;
-
+	
+	/** a=control:rtsp://127.0.0.1:8554/trackID=0 */
 	private String controlUrl;
-	private RtpSession session;
-	private AbstractDePacketizer dePacketizer;
-	private AtomicLong pktCounter;
-
+	
+	/**
+	 * <h4>SDP<h4>
+	 * 
+	 *   a=fmtp:96 streamtype=5; profile-level-id=15; mode=AAC-hbr; config=139056e5a54800; SizeLength=13; IndexLength=3; IndexDeltaLength=3; Profile=1;
+	 * or
+	 *   a=fmtp:96 packetization-mode=1;profile-level-id=64001e;sprop-parameter-sets=Z2QAHqzIYCoMfkwEQAAAAwBAAAAMo8WLZ4A=,aOm7LIs=;
+	 * **/
+	private String fmtpValue;
+	
+	// RTP-Info=url=rtsp://127.0.0.1:8554/trackID=0;seq=10268;rtptime=5875310, url=rtsp://127.0.0.1:8554/trackID=1;seq=15231;rtptime=23980860
 	private long seq = UNKNOWN;
 	private long rtpTime = UNKNOWN;
+	
+	// Range=npt=7.143000-
+	private long npt;
+	
+	private RtpSession session;
+	private AbstractDePacketizer dePacketizer;
 
-	public RtpReceiver(int streamIndex, SystemClock sysClock,
-			AtomicLong pktCounter) {
+
+	public RtpReceiver(int streamIndex, SystemClock sysClock) {
 		super(sysClock, streamIndex);
-		this.pktCounter = pktCounter;
 	}
 
 	public void setControlUrl(String url) {
@@ -61,70 +65,6 @@ public class RtpReceiver extends AVStream {
 		return controlUrl;
 	}
 
-	public boolean setMediaDescription(String baseUrl, MediaDescription md)
-			throws SdpException {
-		String control = md.getAttribute("control");
-		this.controlUrl = URLUtils.getAbsoluteUrl(baseUrl, control);
-
-		String mediaType = md.getMedia().getMediaType();
-		for (Object item : md.getMedia().getMediaFormats(true)) {
-			String format = (String) item;
-			String rtpmap = md.getAttribute("rtpmap");
-			String fmtp = md.getAttribute("fmtp");
-
-			if (null == rtpmap || !rtpmap.startsWith(format)) {
-				logger.warn("rtpmap is NULL for {}", md.getMedia());
-				continue;
-			}
-
-			// a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding
-			// parameters>]
-			Matcher rtpMapParams = Pattern.compile(
-					"(\\d+) ([^/]+)(/(\\d+)(/([^/]+))?)?(.*)?").matcher(rtpmap);
-			if (!rtpMapParams.matches()) {
-				logger.warn("{} is NOT legal rtpmap", rtpmap);
-				return false;
-			} else {
-				setTimeUnit(AVTimeUnit.valueOf(Integer.valueOf(rtpMapParams
-						.group(4))));
-			}
-
-			// payload type
-			this.payloadType = Integer.valueOf(rtpMapParams.group(1));
-
-			// media format
-			String encoding = rtpMapParams.group(2);
-			if ("audio".equalsIgnoreCase(mediaType)) {
-				setFormat(new AudioFormat(encoding));
-			} else if ("video".equalsIgnoreCase(mediaType)) {
-				setFormat(new VideoFormat(encoding));
-			}
-
-			// payload DePacketizer
-			if ("H264".equalsIgnoreCase(encoding)) {
-				this.dePacketizer = new H264DePacketizer();
-
-				// framerate must gt 15 fps
-				this.max_async_diff = getTimeUnit().convert(66,
-						AVTimeUnit.MILLISECONDS);
-			} else if ("MP4V-ES".equalsIgnoreCase(encoding)
-					|| "mpeg4-generic".equalsIgnoreCase(encoding)
-					|| "enc-mpeg4-generic".equalsIgnoreCase(encoding)
-					|| "enc-generic-mp4".equalsIgnoreCase(encoding)) {
-				setFormat(new AudioFormat(Constants.AAC));
-				this.dePacketizer = new Mpeg4GenericCodec();
-				this.max_async_diff = getTimeUnit().convert(100,
-						AVTimeUnit.MILLISECONDS);
-			}
-
-			// read stream's extra info
-			if (null != this.dePacketizer) {
-				dePacketizer.setMediaDescription(this, md);
-			}
-		}
-
-		return true;
-	}
 
 	public int getPayloadType() {
 		return payloadType;
@@ -139,50 +79,55 @@ public class RtpReceiver extends AVStream {
 			session = new DefaultRtpSession(id, payloadType, localParticipant);
 		}
 
-		final List<AVPacket> out = new ArrayList<AVPacket>(4);
-		final JitterBuffer buffer = new JitterBuffer(isVideo() ? 64 : 4);
 
 		if (null != dePacketizer) {
-			session.addDataListener(new RtpSessionDataListener() {
-
-				@Override
-				public void dataPacketReceived(RtpSession session,
-						RtpParticipantInfo participant, DataPacket packet) {
-					buffer.put(packet);
-					DataPacket pkt = null;
-					while (null != (pkt = buffer.tryGetNext(seq))) {
-						pkt.setTimestamp(pkt.getTimestamp() - rtpTime);
-
-						// check rtp lost?
-						if (seq != pkt.getSequenceNumber()) {
-							logger.info("last data packet, except {} but {}",
-											seq, pkt.getSequenceNumber());
-						} else {
-							logger.debug("data packet[{}]",
-											pkt.getSequenceNumber());
-						}
-						seq = (pkt.getSequenceNumber() + 1);
-						if (seq > 65535) {
-							seq = 0;
-						}
-
-						dePacketizer.depacket(RtpReceiver.this, pkt, out);
-
-						while (!out.isEmpty()) {
-							AVPacket frame = out.remove(0);
-
-							frame.setSequenceNumber(pktCounter
-									.getAndIncrement());
-							// syncTimestamp(pkt);
-							dispatcher.firePacket(RtpReceiver.this, frame);
-						}
-					}
-
-				}
-			});
+			RtpSessionDataListener dataListener = makeDataListener(dispatcher);
+			session.addDataListener(dataListener);
 		}
 
 		return session.init();
+	}
+
+	private RtpSessionDataListener makeDataListener(
+			final AVDispatcher dispatcher) {
+		RtpSessionDataListener dataListener = new RtpSessionDataListener() {
+			final List<AVPacket> out = new ArrayList<AVPacket>(4);
+			final JitterBuffer buffer = new JitterBuffer(isVideo() ? 64 : 4);
+			
+			@Override
+			public void dataPacketReceived(RtpSession session,
+					RtpParticipantInfo participant, DataPacket packet) {
+				buffer.put(packet);
+				DataPacket pkt = null;
+				while (null != (pkt = buffer.tryGetNext(seq))) {
+					pkt.setTimestamp(pkt.getTimestamp() - rtpTime);
+
+					// check rtp lost?
+					if (seq != pkt.getSequenceNumber()) {
+						logger.info("last data packet, except {} but {}",
+										seq, pkt.getSequenceNumber());
+					} else {
+						logger.debug("data packet[{}]",
+										pkt.getSequenceNumber());
+					}
+					seq = (pkt.getSequenceNumber() + 1);
+					if (seq > 65535) {
+						seq = 0;
+					}
+
+					dePacketizer.depacket(RtpReceiver.this, pkt, out);
+
+					while (!out.isEmpty()) {
+						AVPacket frame = out.remove(0);
+
+						// syncTimestamp(pkt);
+						dispatcher.firePacket(RtpReceiver.this, frame);
+					}
+				}
+
+			}
+		};
+		return dataListener;
 	}
 
 	public RtpSession getSession() {
@@ -197,4 +142,14 @@ public class RtpReceiver extends AVStream {
 		this.seq = seq;
 	}
 
+	public void setDePacketizer(AbstractDePacketizer dePacketizer) {
+		this.dePacketizer = dePacketizer;
+	}
+	
+	public AbstractDePacketizer getDePacketizer() {
+		return dePacketizer;
+	}
+	public void setPayloadType(int payloadType) {
+		this.payloadType = payloadType;
+	}
 }

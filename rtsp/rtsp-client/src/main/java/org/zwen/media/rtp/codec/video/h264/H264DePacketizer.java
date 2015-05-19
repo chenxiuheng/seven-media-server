@@ -10,14 +10,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.media.Buffer;
-import javax.sdp.MediaDescription;
-import javax.sdp.SdpException;
 
-import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.codec.binary.Hex;
 import org.zwen.media.AVStream;
-import org.zwen.media.AVTimeUnit;
+import org.zwen.media.ByteBuffers;
 import org.zwen.media.codec.video.h264.H264Extra;
 import org.zwen.media.rtp.codec.AbstractDePacketizer;
 
@@ -99,40 +95,31 @@ public class H264DePacketizer extends AbstractDePacketizer {
      * this <tt>DePacketizer</tt> and in accord with {@link #requestKeyFrame}.
      */
     private Thread requestKeyFrameThread;
-	@Override
-	public void setMediaDescription(AVStream av, MediaDescription md) throws SdpException {
+    
+    /* (non-Javadoc)
+     * @see org.zwen.media.rtp.codec.AbstractDePacketizer#init(org.zwen.media.AVStream, java.lang.String)
+     */
+    @Override
+    public void init(AVStream av, String fmtpValue) {
 		Matcher matcher;
 
-		// a=fmtp:96
 		// packetization-mode=1;profile-level-id=4D001F;sprop-parameter-sets=Z00AH9oBQBbpUgAAAwACAAADAGTAgAC7fgAD9H973wvCIRqA,aM48gA==
-		String fmtp = md.getAttribute(FMTP);
-		if (null != fmtp) {
-			matcher = Pattern.compile("packetization-mode=([\\d]+)").matcher(
-					fmtp);
-			if (matcher.find()) {
-				// extra.setPacketMode(Integer.valueOf(matcher.group(1)));
-			}
+		matcher = Pattern.compile("([^;\\s=]+)=(([^;\\s,]+)(,([^;\\s]+))?)").matcher(fmtpValue);
+		while(matcher.find()) {
+			String key = matcher.group(1).toLowerCase();
+			String value = matcher.group(2);
+			
+			if ("profile-level-id".equals(key)) {
+				ByteBuffer profile = ByteBuffers.decodeHex(matcher.group(2));
+				extra.setProfile(profile);
+			} else if ("sprop-parameter-sets".equals(key)) {
+				ByteBuffer sps = ByteBuffers.decodeBase64(matcher.group(3));
+				extra.addSps(sps);
 
-			matcher = Pattern.compile("profile-level-id=([^;]+)").matcher(fmtp);
-			if (matcher.find()) {
-				try {
-					byte[] profile = Hex.decodeHex(matcher.group(1)
-							.toCharArray());
-					extra.setProfile(profile);
-				} catch (DecoderException e) {
-					throw new IllegalArgumentException("illegal profile "
-							+ matcher.group(1));
-				}
-			}
-
-			matcher = Pattern.compile("sprop-parameter-sets=([^,]+),([^;]+)")
-					.matcher(fmtp);
-			if (matcher.find()) {
-				byte[] sps = Base64.decodeBase64(matcher.group(1).getBytes());
-				extra.addSps(ByteBuffer.wrap(sps));
-
-				byte[] pps = Base64.decodeBase64(matcher.group(2).getBytes());
-				extra.addPps(ByteBuffer.wrap(pps));
+				ByteBuffer pps = ByteBuffers.decodeBase64(matcher.group(5));
+				extra.addPps(pps);
+			} else {
+				logger.info("ignored [{}={}]", key, matcher.group(2));
 			}
 		}
 		

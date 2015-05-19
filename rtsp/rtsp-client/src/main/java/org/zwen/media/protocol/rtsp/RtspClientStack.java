@@ -130,7 +130,11 @@ public class RtspClientStack implements Closeable {
 				content = new String(bytes);
 			}
 
-			logger.info("{}", response.getStatus());
+			if (response.getStatus().getCode() > 400) {
+				logger.warn("{}", response.getStatus());
+			} else {
+				logger.info("{}", response.getStatus());
+			}
 			logger.info("");
 			List<Entry<String, String>> entryies = headers.entries();
 			for (Entry<String, String> entry : entryies) {

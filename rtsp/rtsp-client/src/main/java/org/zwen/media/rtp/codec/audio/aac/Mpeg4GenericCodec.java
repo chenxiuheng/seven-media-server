@@ -7,11 +7,7 @@ import java.util.regex.Pattern;
 
 import javax.media.Buffer;
 import javax.media.PlugIn;
-import javax.sdp.MediaDescription;
-import javax.sdp.SdpException;
 
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.jcodec.common.io.BitReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,20 +49,14 @@ public class Mpeg4GenericCodec extends AbstractDePacketizer {
 	}
 
 
-
-	@Override
-	public void setMediaDescription(AVStream av, MediaDescription md)
-			throws SdpException {
+@Override
+public void init(AVStream av, String fmtpValue) {
 		
 		// a=fmtp:96 streamtype=5; profile-level-id=15; mode=AAC-hbr;
 		// config=139056e5a54800; SizeLength=13; IndexLength=3;
 		// IndexDeltaLength=3; Profile=1;
 
-		String fmtp = md.getAttribute(FMTP);
-		if (null == fmtp) {
-			return ;
-		}
-
+		String fmtp = fmtpValue;
 		Matcher matcher = Pattern.compile("([^;\\s=]+)=([^;\\s]+)")
 				.matcher(fmtp);
 		while (matcher.find()) {
@@ -80,18 +70,13 @@ public class Mpeg4GenericCodec extends AbstractDePacketizer {
 			} else if ("mode".equalsIgnoreCase(key)) {
 				mode = value;
 			} else if ("config".equalsIgnoreCase(key)) {
-				try {
-					ByteBuffer config = ByteBuffer
-							.wrap(Hex.decodeHex(value.toCharArray()));
-					
-					BitReader reader = new BitReader(config);
-					
-					extra.setObjectType(reader.readNBit(5));
-					extra.setSampleRateIndex(reader.readNBit(4));
-					extra.setNumChannels(reader.readNBit(4));
-				} catch (DecoderException e) {
-					logger.warn("fail decode hex[{}]", value);
-				}
+				ByteBuffer config = ByteBuffers.decodeHex(value);
+				
+				BitReader reader = new BitReader(config);
+				
+				extra.setObjectType(reader.readNBit(5));
+				extra.setSampleRateIndex(reader.readNBit(4));
+				extra.setNumChannels(reader.readNBit(4));
 			} else if ("SizeLength".equalsIgnoreCase(key)) {
 				sizeLength = Integer.valueOf(value);
 			} else if ("IndexLength".equalsIgnoreCase(key)) {
@@ -100,6 +85,8 @@ public class Mpeg4GenericCodec extends AbstractDePacketizer {
 				indexDeltaLength = Integer.valueOf(value);
 			} else if ("Profile".equalsIgnoreCase(key)) {
 				profile = Integer.valueOf(value);
+			} else {
+				logger.info("ignored [{}={}]", key, value);
 			}
 		}
 
