@@ -49,9 +49,9 @@ public class RtspClient extends AVDispatcher implements Closeable {
 	private static final RtpReceiver[] AVSTREMS_EMPTY = new RtpReceiver[0];
 
 	private static final Logger logger = LoggerFactory
-			.getLogger(RtspClient.class);
+			.getLogger(RtspClient.class); 
 
-	private SystemClock sysClock = new SystemClock();
+	private SystemClock sysClock = new SystemClock(700);
 	
 	private String url;
 	private String user;
@@ -143,10 +143,9 @@ public class RtspClient extends AVDispatcher implements Closeable {
 				}
 				
 				RtpReceiver stream = null;
-				stream = new RtpReceiver(streamIndex, sysClock, pktCounter);
-				boolean success = stream.setMediaDescription(md);
+				stream = new RtpReceiver(streamIndex ++, sysClock, pktCounter);
+				boolean success = stream.setMediaDescription(url, md);
 				if (success) {
-					stream.setStreamIndex(streams.size());
 					streams.add(stream);
 					
 					boolean connect = setup(stream, md);
@@ -163,7 +162,36 @@ public class RtspClient extends AVDispatcher implements Closeable {
 			fireSetup(avstreams);
 
 			// play
-			play();
+			HttpResponse response = play();
+			String rtpInfo = response.headers().get("RTP-Info");
+			String[] infos = StringUtils.split(rtpInfo, ",");
+			for (int i = 0; i < infos.length && i < avstreams.length; i++) {
+				
+				String url = null;
+				int seq = 0;
+				long rtptime = 0;
+				
+				Matcher matcher = Pattern.compile("([a-zA-Z][^=]+)=([^;]+)(;)?").matcher(infos[i]);
+				while(matcher.find()) {
+					String key = matcher.group(1);
+					String value = matcher.group(2);
+					if (key.equalsIgnoreCase("url")) {
+						url = value;
+					} else if (key.equalsIgnoreCase("seq")) {
+						seq = Integer.valueOf(value);
+					} else if (key.equalsIgnoreCase("rtptime")) {
+						rtptime = Long.valueOf(value);
+					}
+				}
+				
+				for (int j = 0; j < avstreams.length; j++) {
+					RtpReceiver receiver = avstreams[j];
+					if (StringUtils.equalsIgnoreCase(receiver.getControlUrl(), url)) {
+						receiver.setRtpTime(rtptime);
+					}
+				}
+			}
+			
 		} catch (SdpException e) {
 			throw new IOException(e.getMessage(), e);
 		} catch (NoPortAvailableException e) {
@@ -209,9 +237,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 	
 	private boolean setup(RtpReceiver stream, MediaDescription md)
 			throws NoPortAvailableException, SdpParseException {
-		final String controlUrl;
-		String control = md.getAttribute("control");
-		controlUrl = URLUtils.getAbsoluteUrl(this.url, control);
+		final String controlUrl = stream.getControlUrl();
 
 		DefaultHttpRequest request = new DefaultHttpRequest(
 				RtspVersions.RTSP_1_0, RtspMethods.SETUP, controlUrl);
@@ -307,6 +333,10 @@ public class RtspClient extends AVDispatcher implements Closeable {
 				RtspVersions.RTSP_1_0, RtspMethods.GET_PARAMETER, controlUrl);
 
 		HttpResponse response = stack.send(request).get();
+		if (response.getStatus().getCode() > 400) {
+			logger.warn("Auto Close for {}", response.getStatus());
+			close();
+		}
 	}
 
 	private DefaultHttpRequest makeRequest(HttpMethod method) {
@@ -321,7 +351,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void close() {
 		try {
 			// inner jobs
 			timer.cancel();

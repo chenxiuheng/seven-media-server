@@ -39,6 +39,8 @@ public interface IDePacketizer {
 	 */
 	public static final String RTPMAP = "rtpmap";
 	
+	public static final int RTP_MAX_PACKET_LENGTH = 1460;
+	
 	public void process(DataPacket packet, List<AVPacket> out);
 	
 	public AVStreamExtra depacketize(MediaDescription md) throws SdpException;

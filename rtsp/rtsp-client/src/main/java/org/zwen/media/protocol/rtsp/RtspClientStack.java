@@ -6,6 +6,7 @@ import java.io.Closeable;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -17,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelException;
@@ -77,25 +79,20 @@ public class RtspClientStack implements Closeable {
 		channel.write(request);
 
 		if (logger.isInfoEnabled()) {
-			logger.info(request.getMethod() + " \r\n{}\r\n{}\r\n",
-					request.getUri(), toString(headers));
+			logger.info("{} {}", request.getMethod(), request.getUri());
+			logger.info("");
+			List<Entry<String, String>> entryies = headers.entries();
+			for (Entry<String, String> entry : entryies) {
+				logger.info("{}={}", entry.getKey(), entry.getValue());
+			}
+			logger.info("");
 		}
 
 		return f;
 	}
 
 	void onResponse(HttpResponse response) {
-		if (logger.isInfoEnabled()) {
-			HttpHeaders headers = response.headers();
-			String content = "";
-			if (response.getContent().readableBytes() > 0) {
-				byte[] bytes = new byte[response.getContent().readableBytes()];
-				response.getContent().duplicate().readBytes(bytes);
-				content = new String(bytes);
-			}
-
-			logger.info(response.getStatus() + "\r\n{}\r\n{}", toString(headers), content);
-		}
+		doLog(response);
 
 		/***
 		 * Session=e11323e9ea489ab1
@@ -119,6 +116,30 @@ public class RtspClientStack implements Closeable {
 			f.handle(response);
 		} else {
 			throw new ChannelException("Unknown CSEQ[" + seqNo + "]");
+		}
+	}
+
+	private void doLog(HttpResponse response) {
+		if (logger.isInfoEnabled()) {
+			HttpHeaders headers = response.headers();
+			String content = "";
+			if (response.getContent().readableBytes() > 0) {
+				byte[] bytes = new byte[response.getContent().readableBytes()];
+				response.getContent().duplicate().readBytes(bytes);
+				content = new String(bytes);
+			}
+
+			logger.info("{}", response.getStatus());
+			logger.info("");
+			List<Entry<String, String>> entryies = headers.entries();
+			for (Entry<String, String> entry : entryies) {
+				logger.info("{}={}", entry.getKey(), entry.getValue());
+			}
+			logger.info("");
+			String[] strs = StringUtils.split(content, "\r\n");
+			for (int i = 0; i < strs.length; i++) {
+				logger.info("{}", strs[i]);
+			}
 		}
 	}
 
@@ -174,17 +195,6 @@ public class RtspClientStack implements Closeable {
 		return bootstrap;
 	}
 
-	private static final StringBuilder toString(HttpHeaders headers) {
-		StringBuilder buf = new StringBuilder();
-		Iterator<Entry<String, String>> itr = headers.iterator();
-		while (itr.hasNext()) {
-			Entry<String, String> entry = itr.next();
-			buf.append(entry.getKey()).append("=").append(entry.getValue())
-					.append(Separators.NEWLINE);
-		}
-
-		return buf;
-	}
 
 	public static final class AsynFuture implements Serializable {
 		private static final long serialVersionUID = 1L;

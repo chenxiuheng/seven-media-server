@@ -1,5 +1,6 @@
 package org.zwen.media.rtp.codec.audio.aac;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -7,13 +8,13 @@ import java.util.regex.Pattern;
 import javax.sdp.MediaDescription;
 import javax.sdp.SdpException;
 
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
+import org.jcodec.common.io.BitReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVPacket;
 import org.zwen.media.AVStreamExtra;
 import org.zwen.media.AVTimeUnit;
+import org.zwen.media.ByteBuffers;
 import org.zwen.media.codec.audio.aac.AACExtra;
 import org.zwen.media.protocol.rtsp.RtpReceiver;
 import org.zwen.media.rtp.codec.IDePacketizer;
@@ -43,7 +44,7 @@ public class DePacketizer implements IDePacketizer {
 				numChannel = Integer.valueOf(matcher.group(6));
 			}
 			extra.setNumChannels(numChannel);
-			extra.setSampleRate(sampleRate);
+			extra.setSampleRate(sampleRate * numChannel);
 		}
 
 		// a=fmtp:96 streamtype=5; profile-level-id=15; mode=AAC-hbr;
@@ -52,9 +53,14 @@ public class DePacketizer implements IDePacketizer {
 		String fmtp = md.getAttribute(FMTP);
 		if (null != fmtp) {
 
-			matcher = Pattern.compile("config=([^;]+)").matcher(fmtp);
+			matcher = Pattern.compile("config=([0-9a-fA-F]+)").matcher(fmtp);
 			if (matcher.find()) {
-				LOGGER.warn("Ignored AAC configs");
+				ByteBuffer config = ByteBuffers.decodeHex(matcher.group(1));
+				BitReader reader = new BitReader(config);
+				
+				extra.setObjectType(reader.readNBit(5));
+				extra.setSampleRateIndex(reader.readNBit(4));
+				extra.setNumChannels(reader.readNBit(4));
 			}
 		}
 
