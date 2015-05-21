@@ -205,8 +205,10 @@ public class FlvWriter implements AVWriter {
 			buffer.writeInt(11 + dataSize); // pre tag size
 			buffer.readBytes(out, buffer.readableBytes());
 			writeHeaders[stream.getStreamIndex()] = true;
+		} else if (null == stream.getExtra()){
+			logger.warn("no stream extra found {}", stream.getFormat());
 		} else {
-			logger.warn("unsupported {}", stream.getFormat());
+			logger.warn("unsupported {}", stream);
 		}
 	}
 	
