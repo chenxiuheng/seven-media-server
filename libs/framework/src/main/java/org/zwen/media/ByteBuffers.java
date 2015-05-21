@@ -2,6 +2,8 @@ package org.zwen.media;
 
 import java.nio.ByteBuffer;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 
 public class ByteBuffers {
@@ -40,13 +42,17 @@ public class ByteBuffers {
 		return new String(Hex.encodeHex(data));
 	}
 
-	public static ByteBuffer decodeHex(String hex) {
-		try {
-			byte[] data = Hex.decodeHex(hex.toCharArray());
+	public static ByteBuffer decodeBase64(String value) {
+		byte[] bytes = Base64.decodeBase64(value.getBytes());
+		return ByteBuffer.wrap(bytes);
+	}
 
-			return ByteBuffer.wrap(data);
+	public static ByteBuffer decodeHex(String value) {
+		try {
+			byte[] bytes = Hex.decodeHex(value.toCharArray());
+			return ByteBuffer.wrap(bytes);
 		} catch (Exception e) {
-			throw new IllegalArgumentException("error HEX: " + hex);
+			throw new IllegalArgumentException(value + "NOT Hex(s)");
 		}
 	}
 }

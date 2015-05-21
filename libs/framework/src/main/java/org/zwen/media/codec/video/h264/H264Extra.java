@@ -2,7 +2,6 @@ package org.zwen.media.codec.video.h264;
 
 import java.nio.ByteBuffer;
 
-import org.jboss.netty.buffer.ChannelBuffer;
 import org.jcodec.codecs.h264.io.model.NALUnit;
 import org.jcodec.codecs.h264.io.model.NALUnitType;
 import org.jcodec.codecs.h264.io.model.SeqParameterSet;
@@ -16,8 +15,8 @@ public class H264Extra implements AVStreamExtra {
 	private int width;
 	private int height;
 	
-	public void setProfile(byte[] profile) {
-		this.profile = ByteBuffer.wrap(profile);
+	public void setProfile(ByteBuffer profile) {
+		this.profile = profile;
 	}
 	
 	public void addPps(ByteBuffer pps) {

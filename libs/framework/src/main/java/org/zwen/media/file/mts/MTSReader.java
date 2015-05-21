@@ -1,25 +1,20 @@
 package org.zwen.media.file.mts;
 
 import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicLong;
 
+import javax.media.Format;
 import javax.media.format.AudioFormat;
 import javax.media.format.VideoFormat;
 
-import org.apache.commons.io.IOUtils;
 import org.jcodec.containers.mps.MTSDemuxer;
 import org.jcodec.containers.mps.MTSDemuxer.MTSPacket;
 import org.jcodec.containers.mps.MTSUtils.StreamType;
@@ -126,13 +121,13 @@ public class MTSReader implements Closeable {
 							break;
 						default:
 							if (streamType.isVideo()) {
-								av
-										.setFormat(new VideoFormat(streamType
+								av.setFormat(new VideoFormat(streamType
 												.name()));
 							} else if (streamType.isAudio()) {
-								av
-										.setFormat(new AudioFormat(streamType
+								av.setFormat(new AudioFormat(streamType
 												.name()));
+							} else {
+								av.setFormat(new Format("unknown"));
 							}
 							break;
 						}

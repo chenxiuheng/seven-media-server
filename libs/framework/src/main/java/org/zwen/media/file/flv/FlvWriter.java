@@ -3,6 +3,7 @@ package org.zwen.media.file.flv;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ public class FlvWriter implements AVWriter {
 
 
 	private AVStream[] streams;
+	private boolean[] writeHeaders = new boolean[0];
 	
 	public FlvWriter(GatheringByteChannel out) {
 		this.out = out;
@@ -43,6 +45,10 @@ public class FlvWriter implements AVWriter {
 	
 	public void setStreams(AVStream[] streams) {
 		this.streams = streams;
+		if (writeHeaders.length != streams.length) {
+			writeHeaders = new boolean[streams.length];
+			Arrays.fill(writeHeaders, false);
+		}
 	}
 
 
@@ -104,88 +110,109 @@ public class FlvWriter implements AVWriter {
 
 		buffer.writeInt(dataSize + 11); // pre tag size
 
+		buffer.readBytes(out, buffer.readableBytes());
+		
 		// stream config(s)
 		for (AVStream stream : streams) {
-			AVStreamExtra extra = stream.getExtra();
-			if (extra instanceof H264Extra) {
-				H264Extra h264 = (H264Extra) extra;
-				ByteBuffer profile = h264.readProfile();
-				if (null == profile || profile.remaining() != 3) {
-					logger.warn("H264.profile is NOT FOUND");
-					continue;
-				}
-
-				ChannelBuffer avc = ChannelBuffers.buffer(128);
-				avc.writeByte(0x17); // key frame + avc
-				avc.writeByte(0x00); // avc sequence header
-				avc.writeMedium(0x00); // Composition time offset
-
-				
-				avc.writeByte(0x01);
-				avc.writeBytes(profile);
-				avc.writeByte(0xFF); // 4 byte for nal header length
-
-				// sps(s)
-				ByteBuffer sps = h264.readSps();
-				avc.writeByte(0xE0 | 0x01);
-				avc.writeShort(sps.remaining());
-				avc.writeBytes(sps);
-
-				// pps(s)
-				ByteBuffer pps = h264.readPps();
-				avc.writeByte(0x01);
-				avc.writeShort(pps.remaining());
-				avc.writeBytes(pps);
-
-				dataSize = avc.readableBytes();
-				buffer.writeByte(0x09); // video type
-				buffer.writeMedium(dataSize);
-				buffer.writeInt(0); // timestamp
-				buffer.writeMedium(0); // stream id
-				buffer.writeBytes(avc);
-				
-				buffer.writeInt(11 + dataSize);
-			} else if (extra instanceof AACExtra) {
-				AACExtra aac = (AACExtra)extra;
-				
-				ByteBuffer aacHeader = ByteBuffer.allocate(4);
-				aacHeader.put((byte)0xAF); // aac, 44100, 2 channels, stereo
-				aacHeader.put((byte)0x00); // aac header
-				
-				int objectType = aac.getObjectType();
-				int sampleRateIndex = aac.getSampleRateIndex();
-				int numChannels = aac.getNumChannels();
-				
-				BitWriter w = new BitWriter(aacHeader);
-				w.writeNBit(objectType, 5);
-				w.writeNBit(sampleRateIndex, 4);
-				w.writeNBit(numChannels, 4);
-				w.writeNBit(0, 1); //frame length - 1024 samples
-				w.writeNBit(0, 1); //does not depend on core coder
-				w.writeNBit(0, 1); //is not extension
-				w.flush();
-				aacHeader.flip();
-				
-				
-				
-				dataSize = aacHeader.remaining();
-				buffer.writeByte(0x08);
-				buffer.writeMedium(dataSize); // data size
-				buffer.writeInt(0x00); // timestamp
-				buffer.writeMedium(0x00); // stream id
-				
-				buffer.writeBytes(aacHeader); // data
-
-				buffer.writeInt(11 + dataSize); // pre tag size
-			} else {
-				logger.warn("unsupported {}", stream.getFormat());
-			}
+			tryWriteHeader(stream);
 		}
 
-		buffer.readBytes(out, buffer.readableBytes());
 	}
 
+	private void tryWriteHeader(AVStream stream) throws IOException {
+		if (stream.getStreamIndex() >= writeHeaders.length ) {
+			logger.error("Fail Add Stream#{}", stream.getStreamIndex());
+			return;
+		} else if (writeHeaders[stream.getStreamIndex()]) {
+			logger.debug("has writen headers");
+			return;
+		}
+
+		int dataSize = 0;
+		ChannelBuffer buffer = ChannelBuffers.dynamicBuffer(1024);
+		AVStreamExtra extra = stream.getExtra();
+		if (extra instanceof H264Extra) {
+			H264Extra h264 = (H264Extra) extra;
+			ByteBuffer profile = h264.readProfile();
+			if (null == profile || profile.remaining() != 3) {
+				logger.warn("H264.profile is NOT FOUND");
+				return;
+			}
+
+			ChannelBuffer avc = ChannelBuffers.buffer(128);
+			avc.writeByte(0x17); // key frame + avc
+			avc.writeByte(0x00); // avc sequence header
+			avc.writeMedium(0x00); // Composition time offset
+
+			
+			avc.writeByte(0x01);
+			avc.writeBytes(profile);
+			avc.writeByte(0xFF); // 4 byte for nal header length
+
+			// sps(s)
+			ByteBuffer sps = h264.readSps();
+			avc.writeByte(0xE0 | 0x01);
+			avc.writeShort(sps.remaining());
+			avc.writeBytes(sps);
+
+			// pps(s)
+			ByteBuffer pps = h264.readPps();
+			avc.writeByte(0x01);
+			avc.writeShort(pps.remaining());
+			avc.writeBytes(pps);
+
+			dataSize = avc.readableBytes();
+			buffer.writeByte(0x09); // video type
+			buffer.writeMedium(dataSize);
+			buffer.writeInt(0); // timestamp
+			buffer.writeMedium(0); // stream id
+			buffer.writeBytes(avc);
+			
+			buffer.writeInt(11 + dataSize);
+			buffer.readBytes(out, buffer.readableBytes());
+			writeHeaders[stream.getStreamIndex()] = true;
+		} else if (extra instanceof AACExtra) {
+			AACExtra aac = (AACExtra)extra;
+			
+			ByteBuffer aacHeader = ByteBuffer.allocate(4);
+			aacHeader.put((byte)0xAF); // aac, 44100, 2 channels, stereo
+			aacHeader.put((byte)0x00); // aac header
+			
+			int objectType = aac.getObjectType();
+			int sampleRateIndex = aac.getSampleRateIndex();
+			int numChannels = aac.getNumChannels();
+			
+			BitWriter w = new BitWriter(aacHeader);
+			w.writeNBit(objectType, 5);
+			w.writeNBit(sampleRateIndex, 4);
+			w.writeNBit(numChannels, 4);
+			w.writeNBit(0, 1); //frame length - 1024 samples
+			w.writeNBit(0, 1); //does not depend on core coder
+			w.writeNBit(0, 1); //is not extension
+			w.flush();
+			aacHeader.flip();
+			
+			
+			
+			dataSize = aacHeader.remaining();
+			buffer.writeByte(0x08);
+			buffer.writeMedium(dataSize); // data size
+			buffer.writeInt(0x00); // timestamp
+			buffer.writeMedium(0x00); // stream id
+			
+			buffer.writeBytes(aacHeader); // data
+
+			buffer.writeInt(11 + dataSize); // pre tag size
+			buffer.readBytes(out, buffer.readableBytes());
+			writeHeaders[stream.getStreamIndex()] = true;
+		} else {
+			logger.warn("unsupported {}", stream.getFormat());
+		}
+	}
+	
 	public void write(AVStream av, AVPacket frame) throws IOException {		
+		tryWriteHeader(av);
+
 		Format vf = frame.getFormat();
 		if (Constants.H264.equalsIgnoreCase(vf.getEncoding())) {
 			writeH264WithStartCode(frame);
