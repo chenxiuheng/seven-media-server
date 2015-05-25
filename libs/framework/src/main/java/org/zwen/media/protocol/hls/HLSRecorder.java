@@ -7,18 +7,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.nio.channels.Channels;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import org.zwen.media.AVDispatcher;
 import org.zwen.media.AVWriter;
 import org.zwen.media.SystemClock;
-import org.zwen.media.Threads;
 import org.zwen.media.URLUtils;
 import org.zwen.media.file.AVDataSink;
 import org.zwen.media.file.flv.FlvWriter;
@@ -193,6 +186,8 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 			} catch (IOException e) {
 				LOGGER.error("Can't Decode read {}", url);
 				LOGGER.info(e.getMessage(), e);
+			} catch (RuntimeException e) {
+				LOGGER.warn("{}, {}", e.getMessage(), e.getClass());
 			} finally {
 				IOUtils.closeQuietly(ch);
 				IOUtils.closeQuietly(reader);
