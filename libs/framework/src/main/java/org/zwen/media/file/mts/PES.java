@@ -14,8 +14,8 @@ import org.zwen.media.AVPacket;
 import org.zwen.media.AVStream;
 
 public class PES {
-	final public int pid;
-	private PESVistor visitor;
+	public int pid;
+	public PESVistor visitor;
 
 	public AVStream stream;
 	private PESPacket pes;

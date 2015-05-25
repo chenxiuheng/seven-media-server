@@ -52,7 +52,8 @@ public class MTSReader implements Closeable {
 
 	// pes streams
 	private Map<StreamType, PESVistor> visitors = Collections.emptyMap();
-	private PES[] pesStreams;
+	final private PES[] pesStreams = new PES[256];
+	private int numPesStreams = 0;
 
 	private boolean dispatchedAVStreams = false;
 	private int bufferLength = 50; // 0.5s for video which is 25fps
@@ -106,7 +107,8 @@ public class MTSReader implements Closeable {
 				PMTStream[] streams = pmt.getStreams();
 
 				if (this.pmt != pid) {
-					pesStreams = new PES[streams.length];
+					this.pmt = pid;
+					this.numPesStreams = streams.length;
 					for (int i = 0; i < streams.length; i++) {
 						pid = streams[i].getPid();
 						StreamType streamType = streams[i].getStreamType();
@@ -132,9 +134,14 @@ public class MTSReader implements Closeable {
 							break;
 						}
 						;
-
-						pesStreams[i] = new PES(pid, visitors.get(streamType),
-								av);
+						if (null == pesStreams[i]) {
+							pesStreams[i] = new PES(pid, visitors
+									.get(streamType), av);
+						} else if (pesStreams[i].pid != pid){
+							pesStreams[i].pid = pid;
+							pesStreams[i].visitor =  visitors.get(streamType);
+							pesStreams[i].stream = av;
+						}
 					}
 
 				}
@@ -143,7 +150,7 @@ public class MTSReader implements Closeable {
 			// stream
 			else if (null != pesStreams) {
 				boolean foundIt = false;
-				for (int i = 0; i < pesStreams.length; i++) {
+				for (int i = 0; i < numPesStreams; i++) {
 					PES pes = pesStreams[i];
 					if (pes.pid == pid) {
 						foundIt = true;
@@ -183,8 +190,8 @@ public class MTSReader implements Closeable {
 	}
 	
 	public int flush(AVDispatcher dispatcher) {
-		for (PES pes : pesStreams) {
-			pes.flush(buffers);
+		for (int i = 0; i < numPesStreams; i++) {
+			pesStreams[i].flush(buffers);
 		}
 
 		return dispatch(dispatcher, 0);
@@ -212,9 +219,9 @@ public class MTSReader implements Closeable {
 	}
 
 	private void dispatchAVStreamsIfNeed(AVDispatcher dispatcher) {
-		if (!dispatchedAVStreams) {
+		if (!dispatchedAVStreams && numPesStreams > 0) {
 			dispatchedAVStreams = true;
-			AVStream[] avs = new AVStream[pesStreams.length];
+			AVStream[] avs = new AVStream[numPesStreams];
 			for (int i = 0; i < avs.length; i++) {
 				avs[i] = pesStreams[i].stream;
 			}
