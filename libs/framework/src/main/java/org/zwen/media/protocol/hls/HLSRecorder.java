@@ -131,6 +131,10 @@ public class HLSRecorder extends AVDispatcher implements Closeable {
 
 	private String readM3U8(String url) throws IOException, HttpException {
 		HttpMethod get = new GetMethod(url);
+		
+		// must Disguise as A Windows User, so the videox server will not fix m3u8 content 
+		//   by HLS special formats
+		get.addRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) ZwenMediaServer");
 		try {
 			int status = client.executeMethod(get);
 			LOGGER.info("status = {}, {}", status, url);
