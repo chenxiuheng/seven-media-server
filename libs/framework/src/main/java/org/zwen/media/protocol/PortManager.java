@@ -89,7 +89,6 @@ public class PortManager
 	
 	public static synchronized int[] findAvailablePorts( int nPorts) throws NoPortAvailableException {
 		final int start = PORT_START.get();
-		int port =  PORT_START.getAndIncrement();
 		
 		int[] ports = findAvailablePorts(nPorts, start);
 		
