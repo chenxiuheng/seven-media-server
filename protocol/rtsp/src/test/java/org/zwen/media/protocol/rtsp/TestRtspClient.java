@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.ParseException;
-import java.util.Arrays;
 import java.util.Vector;
 
 import javax.sdp.MediaDescription;
@@ -20,13 +19,9 @@ import junit.framework.TestCase;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwen.media.AVPacket;
-import org.zwen.media.AVStream;
-import org.zwen.media.AVStreamListener;
 import org.zwen.media.file.AVDataSink;
 import org.zwen.media.file.flv.FlvWriter;
-import org.zwen.media.protocol.rtsp.NoPortAvailableException;
-import org.zwen.media.protocol.rtsp.RtspClient;
+import org.zwen.media.protocol.NoPortAvailableException;
 
 public class TestRtspClient extends TestCase {
 	private static final Logger logger = LoggerFactory
