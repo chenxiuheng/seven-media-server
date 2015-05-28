@@ -9,7 +9,7 @@
 
 	<modules>
 		<module>libs</module>
-		<module>rtsp</module>
+		<module>protocol</module>
 	</modules>
 
 	<dependencies>
