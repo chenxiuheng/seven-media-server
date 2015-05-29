@@ -16,6 +16,7 @@ import gov.nist.javax.sdp.fields.MediaField;
 import gov.nist.javax.sdp.fields.OriginField;
 import gov.nist.javax.sdp.fields.SDPKeywords;
 import gov.nist.javax.sdp.fields.SessionNameField;
+import gov.nist.javax.sip.address.SipUri;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -232,7 +233,10 @@ public class SipMessageHandler {
 		ToHeader toHeader = localSipProfile.getToHeader(addressFactory, headerFactory);
 
 		// create a new Request URI
-		SipURI requestURI = addressFactory.createSipURI(localSipProfile.getUserName(), localSipProfile.getSipDomain());
+		SipUri requestURI = new SipUri();
+		requestURI.setUser(localSipProfile.getUserName());
+		requestURI.setHost(localSipProfile.getSipDomain());
+		requestURI.setPort(localSipProfile.getSipPort());
 
 		// Create Via headers
 		List<ViaHeader> viaHeaders = new ArrayList<ViaHeader>();

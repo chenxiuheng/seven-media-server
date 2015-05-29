@@ -5,22 +5,18 @@ import gov.nist.javax.sip.parser.URLParser;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.TooManyListenersException;
 
-import javax.sip.DialogTerminatedEvent;
-import javax.sip.IOExceptionEvent;
+import javax.sdp.SdpConstants;
+import javax.sdp.SdpException;
 import javax.sip.InvalidArgumentException;
-import javax.sip.RequestEvent;
-import javax.sip.ResponseEvent;
 import javax.sip.SipException;
-import javax.sip.SipListener;
-import javax.sip.TimeoutEvent;
-import javax.sip.TransactionTerminatedEvent;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zwen.media.protocol.NoPortAvailableException;
 import org.zwen.media.protocol.PortManager;
 
 /**
@@ -30,58 +26,124 @@ import org.zwen.media.protocol.PortManager;
 public class SipDataSource implements Closeable {
     private static final Logger logger = LoggerFactory.getLogger(SipDataSource.class);
 
+    private String localSipHost;
     private int localSipPort;
-    private SipUri sipURI;
+    private int localAudioPort;
+    private int localVideoPort;
 
-    private  SipStackExt sipStackExt;
-    
+    private String user;
+    private String passwd;
+    private SipUri destURI;
+
+    private SipStackExt sipStackExt;
+    private SipContact sipContact;
+    private LocalSipProfile localSipProfile;
+
+
     /**
-     * @throws NoPortAvailableException 
-     * @param sip conference uri, "sip:username:passwd@host:port;parameter=value"
+     * use the user to join the conference
+     * @param conferenceSipUrl "sip:username:passwd@host:port;parameter=value"
+     * @param user
+     * @param passwd
      * @throws ParseException
-     * @throws
      */
-    public SipDataSource(String conferenceSipUrl) throws ParseException {
+    public SipDataSource(String conferenceSipUrl, String user, String passwd) throws ParseException {
         URLParser parser = new URLParser(conferenceSipUrl);
-        sipURI = parser.sipURL(true);
-        
-        
+        this.destURI = parser.sipURL(true);
+        this.user = user;
+        this.passwd = passwd;
     }
 
     public void connect() throws IOException {
         try {
-            LocalSipProfile localSipProfile = new LocalSipProfile();
-            
-            String localhost = "10.0.0.1";
+            localSipHost = InetAddress.getLocalHost().getHostAddress();
             localSipPort = PortManager.findAvailablePorts(1)[0];
+            localAudioPort = PortManager.findAvailablePorts(1, localSipPort + 2)[0];
+            localVideoPort = PortManager.findAvailablePorts(1, localSipPort + 4)[0];
 
-            SipStackExt sipStackExt = new SipStackExt();
-            sipStackExt.init(localSipProfile, localhost, localSipPort);
+            localSipProfile = new LocalSipProfile();
+            localSipProfile.setAudio(true);
+            localSipProfile.setVideo(true);
+            localSipProfile.setDisplayName(user);
+            localSipProfile.setLocalAudioRtpPort(localAudioPort);
+            localSipProfile.setLocalVideoRtpPort(localVideoPort);
+            localSipProfile.setLocalSipPort(localSipPort);
+            localSipProfile.setSipDomain(destURI.getHost());
+            localSipProfile.setRealm(destURI.getHost());
+            localSipProfile.setSipPassword(passwd);
+            localSipProfile.setSipPort(destURI.getPort());
+            localSipProfile.setUserName(user);
+
+            // create a list of supported audio formats for the local user agent
+            ArrayList<SipAudioFormat> audioFormats = new ArrayList<SipAudioFormat>();
+            audioFormats.add(new SipAudioFormat(SdpConstants.PCMU, "PCMU", 8000));
+            audioFormats.add(new SipAudioFormat(SdpConstants.PCMA, "PCMA", 8000));
+            audioFormats.add(new SipAudioFormat(SdpConstants.G722, "G722", 8000));
+            localSipProfile.setAudioFormats(audioFormats);
+
+            // create a list of supported video formats for the local user agent
+            ArrayList<SipVideoFormat> videoFormats = new ArrayList<SipVideoFormat>();
+            videoFormats.add(new SipVideoFormat(96, "VP8", 90000));
+            videoFormats.add(new SipVideoFormat(98, "H264", 90000));
+            localSipProfile.setVideoFormats(videoFormats);
+
+
+
+            if (!localSipProfile.isLocalProfile()) {
+                logger.warn("Not Local {}", localSipProfile);
+            }
+
+            sipStackExt = new SipStackExt();
+            sipStackExt.init(localSipProfile, localSipHost, localSipPort);
+            sipStackExt.register();
+
+            sipContact = new SipContact(user, localSipHost, localSipPort);
+            sipStackExt.sendInvite(sipContact);
         } catch (SipException e) {
-            throw new IllegalArgumentException("fail connect to " + sipURI, e);
+            throw new IllegalArgumentException("fail connect to " + destURI, e);
         } catch (InvalidArgumentException e) {
             throw new UnsupportedOperationException(e.getMessage(), e);
         } catch (TooManyListenersException e) {
             throw new UnsupportedOperationException("Too Many Listeners", e);
+        } catch (ParseException e) {
+            throw new UnsupportedOperationException(e.getMessage(), e);
+        } catch (NullPointerException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (SdpException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         }
+    }
+
+    public void start() {
+       
     }
 
     @Override
     public void close() throws IOException {
         PortManager.removePort(localSipPort);
+        PortManager.removePort(localAudioPort);
+        PortManager.removePort(localVideoPort);
 
         if (null != sipStackExt) {
             try {
                 sipStackExt.endCall();
-                sipStackExt = null;
             } catch (Exception e) {
                 logger.warn(e.getMessage(), e);
+            } finally {
+                try {
+                    sipStackExt.unregister();
+                } catch (Exception e) {
+                    logger.debug("fail unregister {}", e.getMessage(), e);
+                }
+                sipStackExt = null;
             }
         }
     }
 
     @Override
     public String toString() {
-        return sipURI.toString();
+        return destURI.toString();
     }
 }
