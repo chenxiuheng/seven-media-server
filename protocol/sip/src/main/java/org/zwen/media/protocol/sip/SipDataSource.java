@@ -130,7 +130,7 @@ public class SipDataSource implements Closeable {
             try {
                 sipStackExt.endCall();
             } catch (Exception e) {
-                logger.warn(e.getMessage(), e);
+                logger.debug(e.getMessage(), e);
             } finally {
                 try {
                     sipStackExt.unregister();

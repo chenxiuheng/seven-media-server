@@ -16,7 +16,6 @@ import gov.nist.javax.sdp.fields.MediaField;
 import gov.nist.javax.sdp.fields.OriginField;
 import gov.nist.javax.sdp.fields.SDPKeywords;
 import gov.nist.javax.sdp.fields.SessionNameField;
-import gov.nist.javax.sip.address.SipUri;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -26,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.sdp.Attribute;
 import javax.sdp.MediaDescription;
@@ -90,7 +90,7 @@ public class SipMessageHandler {
 	private Dialog currentDialog = null;
 	private ArrayList<SipAudioFormat> mSipAudioFormats;
 
-	private long callSequence = 1L;
+	private AtomicLong callSequence = new AtomicLong(1);
 
 
 	/**
@@ -235,10 +235,7 @@ public class SipMessageHandler {
 
 		// create a new Request URI
         URI requestURI;
-        String sipUrl =
-                String.format("sip:%s@%s:%s", localSipProfile.getUserName(), localSipProfile
-                    .getSipDomain(), localSipProfile.getSipPort());
-        requestURI = addressFactory.createURI(sipUrl);
+        requestURI = localSipProfile.createSipUrI(addressFactory);
 		
 		// Create Via headers
 		List<ViaHeader> viaHeaders = new ArrayList<ViaHeader>();
@@ -250,7 +247,7 @@ public class SipMessageHandler {
 		CallIdHeader callIdHeader = sipProvider.getNewCallId();
 
 		// Create a new Cseq header
-		CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(callSequence, Request.REGISTER);
+		CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(nextSeqNo(), Request.REGISTER);
 
 		// Create a new MaxForwards header
 		MaxForwardsHeader maxForwards = headerFactory.createMaxForwardsHeader(70);
@@ -407,7 +404,7 @@ public class SipMessageHandler {
 	 * @throws SipException
 	 */
 	public void sendAck() throws InvalidArgumentException, SipException {
-		Request request = currentDialog.createAck(callSequence++);
+		Request request = currentDialog.createAck(nextSeqNo());
 		currentDialog.sendAck(request);
 		System.out.println(TAG +": ACK sent");
 	}
@@ -517,9 +514,8 @@ public class SipMessageHandler {
 		FromHeader fromHeader = localSipProfile.getFromHeader(addressFactory, headerFactory);
 		ToHeader toHeader = contact.getToHeader(addressFactory, headerFactory);
 
-		// create a new Request URI
-		SipURI requestURI = addressFactory.createSipURI(contact.getSipUserName(), contact.getSipDomain());
-
+		SipURI requestURI;
+        requestURI = localSipProfile.createSipUrI(addressFactory);
 		if(contact.isLocalContact())
 			requestURI.setPort(contact.getSipPort());
 		
@@ -535,7 +531,7 @@ public class SipMessageHandler {
 			currentCallID = sipProvider.getNewCallId();
 
 		// Create a new Cseq header
-		CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(callSequence, Request.INVITE);
+		CSeqHeader cSeqHeader = headerFactory.createCSeqHeader(nextSeqNo(), Request.INVITE);
 
 		// Create a new MaxForwards header
 		MaxForwardsHeader maxForwards = headerFactory.createMaxForwardsHeader(70);
@@ -572,6 +568,10 @@ public class SipMessageHandler {
 		currentDialog = clientTransaction.getDialog();
 		System.out.println(TAG +": INVITE sent");
 	}
+
+    private long nextSeqNo() {
+        return callSequence.incrementAndGet();
+    }
 
 	/**
 	 * Send a sip decline response.
@@ -772,6 +772,6 @@ public class SipMessageHandler {
 		clientTransaction = null;
 		currentDialog = null;
 		currentCallID = null;
-		callSequence = 1L;
+		callSequence.set(0);
 	}
 }
