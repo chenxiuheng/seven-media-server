@@ -48,6 +48,7 @@ import javax.sip.TransportNotSupportedException;
 import javax.sip.address.Address;
 import javax.sip.address.AddressFactory;
 import javax.sip.address.SipURI;
+import javax.sip.address.URI;
 import javax.sip.header.CSeqHeader;
 import javax.sip.header.CallIdHeader;
 import javax.sip.header.ContactHeader;
@@ -233,11 +234,12 @@ public class SipMessageHandler {
 		ToHeader toHeader = localSipProfile.getToHeader(addressFactory, headerFactory);
 
 		// create a new Request URI
-		SipUri requestURI = new SipUri();
-		requestURI.setUser(localSipProfile.getUserName());
-		requestURI.setHost(localSipProfile.getSipDomain());
-		requestURI.setPort(localSipProfile.getSipPort());
-
+        URI requestURI;
+        String sipUrl =
+                String.format("sip:%s@%s:%s", localSipProfile.getUserName(), localSipProfile
+                    .getSipDomain(), localSipProfile.getSipPort());
+        requestURI = addressFactory.createURI(sipUrl);
+		
 		// Create Via headers
 		List<ViaHeader> viaHeaders = new ArrayList<ViaHeader>();
 		ViaHeader viaHeader = headerFactory.createViaHeader(localIPAddress, localSipPort, listeningPoint.getTransport(), null);
