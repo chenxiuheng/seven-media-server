@@ -33,11 +33,11 @@ import org.jboss.netty.handler.codec.rtsp.RtspHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RtspClientStack implements Closeable {
+public class RtspConnector implements Closeable {
 	final private static ExecutorService threadPool = Executors
 			.newCachedThreadPool();
 	final private static Logger logger = LoggerFactory
-			.getLogger(RtspClientStack.class);
+			.getLogger(RtspConnector.class);
 
 	final private String host;
 	final private int port;
@@ -50,7 +50,7 @@ public class RtspClientStack implements Closeable {
 	private ConcurrentHashMap<String, AsynFuture> futures = new ConcurrentHashMap<String, AsynFuture>();
 	private boolean isClosed;
 
-	public RtspClientStack(String host, int port) {
+	public RtspConnector(String host, int port) {
 		super();
 		this.host = host;
 		this.port = port;

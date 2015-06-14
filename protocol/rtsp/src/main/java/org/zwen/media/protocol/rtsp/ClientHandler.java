@@ -9,9 +9,9 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
  * @author res
  */
 public class ClientHandler extends SimpleChannelUpstreamHandler {
-	private RtspClientStack client;
+	private RtspConnector client;
 
-	public ClientHandler(RtspClientStack client) {
+	public ClientHandler(RtspConnector client) {
 		this.client = client;
 	}
 

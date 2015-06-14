@@ -61,7 +61,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 	private String url;
 	private String user;
 	private String pass;
-	private RtspClientStack stack;
+	private RtspConnector stack;
 	private boolean supportGetParameters = false;
 
 	private Timer timer;
@@ -85,7 +85,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 		} catch (Exception e) {
 		}
 
-		stack = new RtspClientStack(host, port);
+		stack = new RtspConnector(host, port);
 	}
 
 	public void connect() throws ConnectException {

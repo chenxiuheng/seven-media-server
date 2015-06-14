@@ -9,10 +9,10 @@ import org.jboss.netty.handler.codec.rtsp.RtspResponseDecoder;
 
 
 public class ClientPipelineFactory implements ChannelPipelineFactory {
-	private RtspClientStack client;
+	private RtspConnector client;
 	
 	
-	public ClientPipelineFactory(RtspClientStack rtspClientStack) {
+	public ClientPipelineFactory(RtspConnector rtspClientStack) {
 		super();
 		this.client = rtspClientStack;
 	}
