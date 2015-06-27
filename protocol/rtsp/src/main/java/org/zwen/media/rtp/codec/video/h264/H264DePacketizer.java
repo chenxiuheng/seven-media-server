@@ -11,7 +11,6 @@ import java.util.regex.Pattern;
 
 import javax.media.Buffer;
 
-import org.apache.commons.codec.binary.Base64;
 import org.zwen.media.AVStream;
 import org.zwen.media.ByteBuffers;
 import org.zwen.media.codec.video.h264.H264Extra;
