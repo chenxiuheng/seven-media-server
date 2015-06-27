@@ -1,18 +1,23 @@
 package org.zwen.media.protocol.rtsp;
 
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author res
  */
 public class ClientHandler extends SimpleChannelUpstreamHandler {
+	private static Logger logger = LoggerFactory.getLogger(ClientHandler.class);
+	
 	private RtspConnector client;
 
-	public ClientHandler(RtspConnector client) {
-		this.client = client;
+	public ClientHandler(org.zwen.media.protocol.rtsp.RtspConnector client2) {
+		this.client = client2;
 	}
 
 	@Override
@@ -23,5 +28,16 @@ public class ClientHandler extends SimpleChannelUpstreamHandler {
 		} else {
 			super.messageReceived(ctx, e);
 		}
+	}
+	
+	@Override
+	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
+			throws Exception {
+		Throwable cause = e.getCause();
+		if (cause instanceof java.net.SocketTimeoutException) {
+			logger.warn("socket timeout {} --> {}", ctx.getChannel().getLocalAddress(), ctx.getChannel().getRemoteAddress());
+			
+		}
+		super.exceptionCaught(ctx, e);
 	}
 }

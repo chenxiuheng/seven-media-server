@@ -34,6 +34,7 @@ public class RtspSession {
 		return rtpSessions.size();
 	}
 	
+	@SuppressWarnings("unchecked")
 	public int getNumMediaDescriptions() {
 		List<MediaDescription> mds;
 		try {
@@ -47,6 +48,7 @@ public class RtspSession {
 		return 0;
 	}
 
+	@SuppressWarnings("unchecked")
 	public MediaDescription getMediaDescription(int index) {
 		List<MediaDescription> mds;
 		try {
@@ -69,6 +71,7 @@ public class RtspSession {
 		return null;
 	}
 
+	@SuppressWarnings("unchecked")
 	public MediaDescription getMediaDescription(String type) {
 		try {
 			List<MediaDescription> mds = sessionDescription

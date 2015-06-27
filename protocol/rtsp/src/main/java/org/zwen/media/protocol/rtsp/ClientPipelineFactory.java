@@ -1,5 +1,6 @@
 package org.zwen.media.protocol.rtsp;
 
+
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
@@ -12,9 +13,9 @@ public class ClientPipelineFactory implements ChannelPipelineFactory {
 	private RtspConnector client;
 	
 	
-	public ClientPipelineFactory(RtspConnector rtspClientStack) {
+	public ClientPipelineFactory(org.zwen.media.protocol.rtsp.RtspConnector rtspConnector) {
 		super();
-		this.client = rtspClientStack;
+		this.client = rtspConnector;
 	}
 
 

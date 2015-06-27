@@ -9,6 +9,7 @@ import gov.nist.javax.sdp.parser.SDPParser;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.InetAddress;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -20,6 +21,7 @@ import java.util.regex.Pattern;
 
 import javax.media.format.AudioFormat;
 import javax.media.format.VideoFormat;
+import javax.media.rtp.SessionAddress;
 import javax.sdp.MediaDescription;
 import javax.sdp.SdpException;
 import javax.sdp.SdpParseException;
@@ -47,8 +49,6 @@ import org.zwen.media.URLUtils;
 import org.zwen.media.protocol.PortManager;
 import org.zwen.media.rtp.codec.audio.aac.Mpeg4GenericCodec;
 import org.zwen.media.rtp.codec.video.h264.H264DePacketizer;
-
-import com.biasedbit.efflux.participant.RtpParticipant;
 
 public class RtspClient extends AVDispatcher implements Closeable {
 	private static final RtpReceiver[] AVSTREMS_EMPTY = new RtpReceiver[0];
@@ -158,6 +158,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 				} catch (Exception e) {
 					logger.error("error media description {}", md);
 					logger.info(e.getMessage(), e);
+					e.printStackTrace();
 				}
 
 			}
@@ -181,6 +182,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 		String control = md.getAttribute("control");
 		assertNotNull(control, "no control uri/url");
 		rtp.setControlUrl(URLUtils.getAbsoluteUrl(url, control));
+		rtp.setMediaType(md.getMedia().getMediaType());
 
 		// a=rtpmap:96 mpeg4-generic/22050/2
 		// a=rtpmap:96 H264/90000
@@ -283,6 +285,10 @@ public class RtspClient extends AVDispatcher implements Closeable {
 
 		// handle response
 		HttpResponse resp = stack.send(request).get();
+		if (null == resp) {
+			logger.warn("fail setup {}", controlUrl);
+			return false;
+		}
 		HttpHeaders headers = resp.headers();
 
 		// Transport=RTP/AVP/UDP;unicast;client_port=6794-6795;server_port=63837-63838;ssrc=6C467D5B;mode=play
@@ -300,7 +306,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 		String client_port_1 = String.valueOf(ports[1]);
 		String server_port_0 = null;
 		String server_port_1 = null;
-		long ssrc = 0;
+		int ssrc = 0;
 
 		Matcher matcher = Pattern.compile("([^\\s=;]+)=(([^-;]+)(-([^;]+))?)")
 				.matcher(transport);
@@ -313,33 +319,36 @@ public class RtspClient extends AVDispatcher implements Closeable {
 				server_port_0 = matcher.group(3);
 				server_port_1 = matcher.group(5);
 			} else if ("ssrc".equals(key)) {
-				ssrc = Long.valueOf(matcher.group(2), 16);
+				ssrc = (int) Long.parseLong(matcher.group(2), 16);
 			} else {
 				logger.warn("ignored [{}={}]", key, matcher.group(2));
 			}
 		}
 
-		RtpParticipant localParticipant = null;
-		RtpParticipant remoteParticipant = null;
+		SessionAddress localParticipant = null;
+		SessionAddress remoteParticipant = null;
 
 		// make rtp session and init
 		String sndHost = stack.getHost();
 		Integer sndRTPPort = Integer.valueOf(server_port_0);
 		Integer sndRTCPPort = Integer.valueOf(server_port_1);
-		remoteParticipant = RtpParticipant.createReceiver(sndHost, sndRTPPort,
-				sndRTCPPort);
-		remoteParticipant.getInfo().setSsrc(ssrc);
+		remoteParticipant = new SessionAddress(InetAddress.getByName(sndHost),
+				sndRTPPort);
 
 		// receiver
-		String recvHost = "0.0.0.0";
 		Integer recvRTPPort = Integer.valueOf(client_port_0);
 		Integer recvRTCPPort = Integer.valueOf(client_port_1);
-		localParticipant = RtpParticipant.createReceiver(recvHost, recvRTPPort,
-				recvRTCPPort);
+		localParticipant = new SessionAddress(InetAddress.getLocalHost(),
+				recvRTPPort, recvRTCPPort);
 
 		// rtp receive connect it
-		boolean connected = stream.connect(stack.getSessionId(),
-				localParticipant, remoteParticipant, this);
+		boolean connected = false;
+		try {
+			connected = stream.connect(stack.getSessionId(), ssrc,
+					localParticipant, remoteParticipant, this);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		if (!connected) {
 			throw new IOException("fail connect " + transport);
 		}
@@ -435,7 +444,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 		return new DefaultHttpRequest(RtspVersions.RTSP_1_0, method, url);
 	}
 
-	private String getAuthValue(String user, String pass) {
+	public static String getAuthValue(String user, String pass) {
 		byte[] auth = Base64.encodeBase64(new String(user + ":"
 				+ (pass != null ? pass : "")).getBytes());
 		String authValue = "Basic " + new String(auth);
