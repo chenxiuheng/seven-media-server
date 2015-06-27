@@ -51,7 +51,7 @@ import org.zwen.media.rtp.codec.audio.aac.Mpeg4GenericCodec;
 import org.zwen.media.rtp.codec.video.h264.H264DePacketizer;
 
 public class RtspClient extends AVDispatcher implements Closeable {
-	private static final RtpReceiver[] AVSTREMS_EMPTY = new RtpReceiver[0];
+	private static final RtpDataSource[] AVSTREMS_EMPTY = new RtpDataSource[0];
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(RtspClient.class);
@@ -65,7 +65,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 	private boolean supportGetParameters = false;
 
 	private Timer timer;
-	private RtpReceiver[] avstreams = AVSTREMS_EMPTY;
+	private RtpDataSource[] avstreams = AVSTREMS_EMPTY;
 
 	public RtspClient(String url, String user, String pass) {
 		this.timer = new Timer(true);
@@ -131,7 +131,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 
 			// setup streams
 			int streamIndex = 0;
-			List<RtpReceiver> streams = new ArrayList<RtpReceiver>();
+			List<RtpDataSource> streams = new ArrayList<RtpDataSource>();
 			Iterator<MediaDescription> iter = (Iterator<MediaDescription>) mediaDescriptions
 					.iterator();
 			while (iter.hasNext()) {
@@ -147,7 +147,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 				}
 
 				try {
-					RtpReceiver stream = null;
+					RtpDataSource stream = null;
 					stream = makeReceiver(streamIndex++, md);
 					streams.add(stream);
 
@@ -173,10 +173,10 @@ public class RtspClient extends AVDispatcher implements Closeable {
 		}
 	}
 
-	private RtpReceiver makeReceiver(int streamIndex, MediaDescription md)
+	private RtpDataSource makeReceiver(int streamIndex, MediaDescription md)
 			throws SdpParseException {
 		Matcher matcher;
-		RtpReceiver rtp = new RtpReceiver(streamIndex, sysClock);
+		RtpDataSource rtp = new RtpDataSource(streamIndex, sysClock);
 
 		// a=control:rtsp://127.0.0.1:8554/trackID=2
 		String control = md.getAttribute("control");
@@ -272,7 +272,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 		return sd;
 	}
 
-	private boolean setup(RtpReceiver stream) throws IOException {
+	private boolean setup(RtpDataSource stream) throws IOException {
 		// make request
 		final String controlUrl = stream.getControlUrl();
 		DefaultHttpRequest request = new DefaultHttpRequest(
@@ -417,7 +417,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 			}
 
 			for (int j = 0; j < avstreams.length; j++) {
-				RtpReceiver receiver = avstreams[j];
+				RtpDataSource receiver = avstreams[j];
 				if (StringUtils.equalsIgnoreCase(receiver.getControlUrl(), url)) {
 					receiver.setRtpTime(rtptime);
 					receiver.setSeq(seq);
@@ -458,7 +458,7 @@ public class RtspClient extends AVDispatcher implements Closeable {
 			timer.cancel();
 
 			// data receive jobs
-			for (RtpReceiver rtp : avstreams) {
+			for (RtpDataSource rtp : avstreams) {
 				if (null == rtp.getSession()) {
 					continue;
 				}

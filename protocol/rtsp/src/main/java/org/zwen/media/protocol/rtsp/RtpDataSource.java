@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -17,7 +16,6 @@ import jlibrtp.RTPAppIntf;
 import jlibrtp.RTPSession;
 import jlibrtp.RtpPkt;
 
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zwen.media.AVDispatcher;
@@ -27,10 +25,10 @@ import org.zwen.media.rtp.codec.AbstractDePacketizer;
 
 import com.biasedbit.efflux.session.RtpSession;
 
-public class RtpReceiver extends AVStream implements RTPAppIntf {
+public class RtpDataSource extends AVStream implements RTPAppIntf {
 
 	private static final Logger logger = LoggerFactory
-			.getLogger(RtpReceiver.class);
+			.getLogger(RtpDataSource.class);
 
 	private String mediaType;
 
@@ -61,7 +59,7 @@ public class RtpReceiver extends AVStream implements RTPAppIntf {
 	private RtpSession session;
 	private AbstractDePacketizer dePacketizer;
 
-	public RtpReceiver(int streamIndex, SystemClock sysClock) {
+	public RtpDataSource(int streamIndex, SystemClock sysClock) {
 		super(sysClock, streamIndex);
 	}
 
